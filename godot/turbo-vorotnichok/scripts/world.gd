@@ -1,5 +1,5 @@
 extends Node2D
-## Ближний мир: офисная башня, ларьки (фургон Тиграна, дальше Пышечная), тротуар (графика из GPT, art/gpt/)
+## Ближний мир: офисная башня, ларьки (фургон Тиграна, дальше Пышечная и Чебуречная), тротуар (графика из GPT, art/gpt/)
 ## Облака и всё, что летает, в sky.gd. 1 метр = PX пикселей, земля на y = 0.
 
 const PX := 4.0
@@ -34,9 +34,9 @@ func _stall(k: String) -> void:
 	var says := TIGRAN_SAYS
 	if k != "tigran":
 		var sz := st.texture.get_size()
-		at = Vector2(PYSHKI_X, -sz.y + 2)
-		counter = PYSHKI_COUNTER
-		says = at + PYSHKI_SAYS
+		at = Vector2(kd.get("stall_x", PYSHKI_X), -sz.y + 2)
+		counter = kd.get("counter", PYSHKI_COUNTER)
+		says = at + kd.get("says", PYSHKI_SAYS)
 	st.position = at
 	# продавец за прилавком: низ спрайта прячется за стойку окошка
 	var sp := _sprite("res://art/gpt/%s_small_happy.png" % kd.seller)

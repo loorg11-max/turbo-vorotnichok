@@ -39,8 +39,9 @@ def load_data():
     items = {}
     for m in re.finditer(r'"(\w+)":\s*\{"name":\s*"([^"]+)",\s*"p":\s*([\d.]+),\s*"v":\s*([\d.]+),'
                          r'\s*"d":\s*([\d.]+),\s*"i":\s*(-?[\d.]+)(.*?)\}', src):
+        h = re.search(r'"h":\s*(-?[\d.]+)', m[7])
         items[m[1]] = {"name": m[2], "p": float(m[3]), "v": float(m[4]), "d": float(m[5]),
-                       "i": float(m[6]), "base": '"base": true' in m[7]}
+                       "i": float(m[6]), "base": '"base": true' in m[7], "h": float(h[1]) if h else 0.0}
     block = src[src.index("const RECIPES"):src.index("}", src.index("const RECIPES"))]
     recipes = {m[3]: (m[1], m[2]) for m in re.finditer(r'"(\w+)\+(\w+)":\s*"(\w+)"', block)}
     return items, recipes
@@ -111,7 +112,9 @@ def fly(items, tray, mode, seed=1):
             ang += rng.uniform(-0.5, 0.5) * inst * DT * 4
         acc = thrust + boost
         sp = math.hypot(vx, vy)
-        vx += (math.sin(ang) * acc - DRAG * vx * sp) * DT
+        # h: блюдо толкает вбок (аджика из Чебуречной), пока горит; при сжатых булках слабее, как тяга
+        side = it["h"] * thrust / it["p"] if thrust > 0 else 0.0
+        vx += (math.sin(ang) * acc + side - DRAG * vx * sp) * DT
         vy += (math.cos(ang) * acc - GRAVITY - DRAG * vy * sp) * DT
         hx += vx * DT
         hy += vy * DT

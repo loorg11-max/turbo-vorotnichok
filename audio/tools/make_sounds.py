@@ -524,7 +524,57 @@ def render_waltz(song, sr=MSR):
     return norm(out - out.mean(), 0.7)
 
 
-MUSIC = {"music_kiosk": (KIOSK, "kiosk"), "music_flight": (FLIGHT, "flight"), "music_pyshki": (PYSHKI, "waltz")}
+# Чебуречная у вокзала: бодрая песенка в ля миноре, бас «ум-па», стук колёс на стыках рельсов
+# (два удара подряд) и гудок поезда в последнем такте.
+CHEBUREKI = {
+    "bpm": 126,
+    "lead": ["12 - 10 8 7 - 7 .", "8 7 5 3 5 - - .", "7 - 8 10 12 - 10 8", "7 - - . 7 8 7 5",
+             "3 - 5 7 8 - 7 5", "5 - 7 8 10 - 8 7", "7 8 10 12 11 - 7 .", "12 - - . . . . ."],
+    "roots": [0, 5, 7, 7, 0, 5, 7, 0],
+}
+TRAIN_CHORD = {0: [0, 3, 7], 5: [5, 8, 12], 7: [7, 11, 14]}
+
+
+def whistle(dur, sr=MSR):
+    """Гудок: три синуса аккордом, въезжают снизу и чуть дрожат."""
+    n = n_of(dur, sr)
+    t = tt(dur, sr)
+    bend = 1 - 0.06 * np.exp(-t * 12)
+    x = sum(sine(note(c) * bend * (1 + 0.004 * np.sin(2 * np.pi * 7 * t)), sr) for c in (3, 7, 12))
+    return x / 3 * env(n, 0.04, 0.2, 0.8, 0.15, sr)
+
+
+def render_train(song, rng, sr=MSR):
+    e8 = 60.0 / song["bpm"] / 2
+    bars = len(song["lead"])
+    length = e8 * 8 * bars
+    buf = np.zeros(n_of(length + 2.0, sr))
+    for nn, st, ln in parse(song["lead"]):
+        place(buf, lead_voice(nn, e8 * ln, 0.5, 0.26), st * e8, sr)
+    for b, r in enumerate(song["roots"]):
+        t0 = b * 8 * e8
+        for q, off in enumerate([0, 7, 0, 7]):  # «ум» на сильные доли
+            n = n_of(e8 * 0.9, sr)
+            place(buf, tri(np.full(n, note(r - 24 + off)), sr) * env(n, 0.004, 0.12, 0.6, 0.03, sr) * 0.55, t0 + q * 2 * e8, sr)
+        for k in (1, 3, 5, 7):  # «па» аккордом гармошки
+            m = n_of(e8 * 0.6, sr)
+            stab = sum(accordion(c - 12, e8 * 0.6, 1.0) for c in TRAIN_CHORD[r]) / 3
+            place(buf, stab[:m] * 0.1, t0 + k * e8, sr)
+        for k in (0, 1, 4, 5):  # стыки рельсов: та-дам, та-дам
+            place(buf, tek(rng, sr) * (0.3 if k % 2 else 0.22), t0 + k * e8, sr)
+        place(buf, dum(sr) * 0.4, t0, sr)
+        for k in range(8):
+            place(buf, hat(rng, sr) * 0.06, t0 + k * e8 + e8 / 2, sr)
+    place(buf, whistle(e8 * 4) * 0.22, (bars - 1) * 8 * e8 + 3 * e8, sr)
+    n = n_of(length, sr)
+    out = buf[:n].copy()
+    out[: len(buf) - n] += buf[n:]
+    out = lowpass(out, 8500, sr, 1)
+    return norm(out - out.mean(), 0.7)
+
+
+MUSIC = {"music_kiosk": (KIOSK, "kiosk"), "music_flight": (FLIGHT, "flight"), "music_pyshki": (PYSHKI, "waltz"),
+         "music_chebureki": (CHEBUREKI, "train")}
 LOOPS = {"gas", "squeeze", "wind"}
 
 
@@ -564,7 +614,8 @@ def main():
     for i, (name, (song, style)) in enumerate(MUSIC.items()):
         if only and name not in only:
             continue
-        x = render_waltz(song) if style == "waltz" else render(song, style, np.random.default_rng(2000 + i))
+        rng = np.random.default_rng(2000 + i)
+        x = render_waltz(song) if style == "waltz" else render_train(song, rng) if style == "train" else render(song, style, rng)
         tmp = os.path.join(out, name + ".tmp.wav")
         write_wav(tmp, x, MSR)
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", tmp, "-c:a", "libvorbis", "-q:a", "4",

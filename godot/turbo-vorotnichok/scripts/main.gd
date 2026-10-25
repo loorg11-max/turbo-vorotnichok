@@ -241,7 +241,7 @@ func _check_progress(quiet := false) -> void:
 	for m in [[1, "dish1"], [6, "dish6"]]:
 		if known.size() >= m[0]:
 			_award(m[1], quiet)
-	for m in [["tigran", "dish_all"], ["pyshki", "dish_all_pyshki"]]:
+	for m in [["tigran", "dish_all"], ["pyshki", "dish_all_pyshki"], ["chebureki", "dish_all_chebureki"]]:
 		if GameData.recipes_of(m[0]).all(func(id): return known.has(id)):
 			_award(m[1], quiet)
 	if known.any(GameData.mixed_origin):
@@ -1213,6 +1213,8 @@ func _finish() -> void:
 		_award("long")
 	if tray.size() == 1 and f.max >= 300.0:
 		_award("light")
+	if dist >= 1500 and tray.any(func(id): return GameData.ITEMS[id].get("h", 0.0) > 0.0):
+		_award("rail")
 	if f.max >= 600.0 and tray.all(func(id): return GameData.kiosk_of(id) == "pyshki"):
 		_award("sweet")
 	# талоны за высоту и выполненные задания
@@ -1496,7 +1498,9 @@ func _update_flight(dt: float) -> void:
 		_puff(2, 10.0, dt)
 	var acc := thrust + boost
 	var sp := Vector2(vx, vy).length()
-	vx += (sin(ang) * acc - DRAG * vx * sp) * dt
+	# аджика толкает вбок, пока блюдо горит; при сжатых булках слабее, как и тяга
+	var side: float = it.get("h", 0.0) * thrust / it.p if thrust > 0.0 and not it.is_empty() else 0.0
+	vx += (sin(ang) * acc + side - DRAG * vx * sp) * dt
 	vy += (cos(ang) * acc - GRAVITY - DRAG * vy * sp) * dt
 	if vy < 0.0:
 		vy -= Perks.power("shirt", levels.shirt) * vy * dt  # рубашка-парашют тормозит падение
@@ -1723,6 +1727,40 @@ func _shots() -> void:
 		await get_tree().create_timer(0.2).timeout
 		shot.call("book2")
 		await _esc()
+	# Чебуречная: снимается, только когда её картинки уже в проекте
+	if GameData.kiosk_ready("chebureki"):
+		pc.set_paused(false)
+		best = 1100.0
+		known += ["shawarma", "glavash", "double", "combo", "sauer", "lunch", "cheburek"]
+		kiosk = "pyshki"
+		_to_kiosk()
+		switch_btn.pressed.emit()
+		await get_tree().create_timer(2.4).timeout
+		shot.call("walk3")
+		while state == State.WALK:
+			await get_tree().process_frame
+		_add_bowl("cheburek")
+		_add_bowl("adjika")
+		await get_tree().create_timer(0.3).timeout
+		shot.call("chebureki")
+		book.open(known, GameData.open_kiosks(best), "chebureki")
+		await get_tree().create_timer(0.2).timeout
+		shot.call("book3")
+		await _esc()
+		# аджика уносит вбок: тот же поднос с ней и без неё
+		for t in [["cheburek", "cheburek"], ["fire", "fire"]]:
+			tray = t
+			_start_launch()
+			await get_tree().create_timer(1.9).timeout
+			f.aim = 0.6
+			aim_t = 1e9
+			_launch()
+			while state != State.RESULT:
+				await get_tree().process_frame
+			print("поднос %s: высота %d м, вбок %d м" % [t, int(f.max), int(hx - f.x0)])
+		await get_tree().create_timer(0.3).timeout
+		shot.call("fire_result")
+		kiosk = "tigran"
 	# испытание дня: условия на сегодня, полёт и итог
 	pc.set_paused(false)
 	stats.flights = 5

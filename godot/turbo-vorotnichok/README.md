@@ -1,6 +1,6 @@
 # Турбо белый воротничок: каркас на Godot 4
 
-Перенос браузерного прототипа v1 на Godot 4.3 (GDScript). Баланс, продукты и 11 рецептов те же. Текущая версия 0.5b (`config/version` в project.godot).
+Перенос браузерного прототипа v1 на Godot 4.3 (GDScript). Баланс, продукты и 11 рецептов те же. Текущая версия 0.5c (`config/version` в project.godot).
 
 ## Как запустить
 
@@ -19,7 +19,7 @@
 
 ## Версия для Windows
 
-Готовая сборка: `/mnt/project-files/godot/builds/TurboVorotnichok-0.5b-windows.zip` (один exe, данные игры внутри, установка не нужна).
+Готовая сборка: `/mnt/project-files/godot/builds/TurboVorotnichok-0.5c-windows.zip` (один exe, данные игры внутри, установка не нужна).
 Пересобрать: `godot --headless --path . --export-release "Windows" build/windows/TurboVorotnichok.exe` (пресеты Windows, Linux и Web в export_presets.cfg, нужны шаблоны экспорта Godot 4.3).
 Сохранения на Windows: `%APPDATA%\TurboVorotnichok\save.cfg` (рекорд, рецепты, поднос, достижения, пройденные подсказки, счётчики полётов и жижи, режим окна, громкость).
 Значок exe с 0.5b свой (`art/icon.ico`, 7 размеров из `art/icon.png`), в свойствах файла название и версия игры. Godot ставит их через rcedit. На Windows достаточно указать rcedit в Редактор → Настройки → Экспорт → Windows. На Linux вместо rcedit и wine работает `/mnt/project-files/godot/tools/rcedit-shim/` (Node, библиотека resedit): там `npm install`, в настройках редактора `export/windows/wine` указывает на скрипт `exec node <путь>/rcedit.js "$@"`, а `export/windows/rcedit` на любой существующий файл.
@@ -28,12 +28,12 @@
 
 ## Проверка снимками
 
-`xvfb-run -a godot --rendering-driver opengl3 --path . -- --shot` проходит всю игру сам (рекорд ставится 300 м) и сохраняет 24 снимка (среди них окно «Талоны», 4 с подсказками обучения, 4 Пышечной: подсказка про новый ларёк, переход, ларёк тёти Вали, вкладка книги, и 2 испытания дня: ларёк и итог полёта) в папку сохранений (на Linux `~/.local/share/TurboVorotnichok/`). Перед первым запуском нужен импорт: `godot --headless --import --path .`. Последние снимки лежат в `screens/`, сводка версии 0.4a: `screens/v04_shots.png`, ролик со звуком версии 0.4b: `screens/v04b_sound_preview.mp4`, подсказки 0.4c: `screens/v04c_tutorial.png`, интерфейс и небо 0.4e: `screens/v04e_ui_sky.png`, талоны 0.4f: `screens/v04f_talony.png`, Пышечная 0.5: `screens/v05_pyshechnaya.png`, испытание дня 0.5a: `screens/v05a_daily.png`. Заодно проверяется, что Esc закрывает книгу и достижения. Ролик со звуком пишет тот же прогон с ключами `--write-movie run.avi --fixed-fps 30`.
+`xvfb-run -a godot --rendering-driver opengl3 --path . -- --shot` проходит всю игру сам (рекорд ставится 300 м) и сохраняет 24 снимка (среди них окно «Талоны», 4 с подсказками обучения, 4 Пышечной: подсказка про новый ларёк, переход, ларёк тёти Вали, вкладка книги, и 2 испытания дня: ларёк и итог полёта; когда будут картинки Чебуречной, ещё 4: переход, ларёк Михалыча, вкладка книги, полёт на огненных чебуреках) в папку сохранений (на Linux `~/.local/share/TurboVorotnichok/`). Перед первым запуском нужен импорт: `godot --headless --import --path .`. Последние снимки лежат в `screens/`, сводка версии 0.4a: `screens/v04_shots.png`, ролик со звуком версии 0.4b: `screens/v04b_sound_preview.mp4`, подсказки 0.4c: `screens/v04c_tutorial.png`, интерфейс и небо 0.4e: `screens/v04e_ui_sky.png`, талоны 0.4f: `screens/v04f_talony.png`, Пышечная 0.5: `screens/v05_pyshechnaya.png`, испытание дня 0.5a: `screens/v05a_daily.png`. Заодно проверяется, что Esc закрывает книгу и достижения. Ролик со звуком пишет тот же прогон с ключами `--write-movie run.avi --fixed-fps 30`.
 
 ## Что внутри
 
 - `scripts/main.gd`: ларёк, запуск, полёт, итоги с медалью, реплики Геннадия в облачке, тряска камеры, сплющивание при старте и посадке, замедление на новом рекорде, сохранение рекорда и открытых рецептов.
-- `scripts/data.gd`: продукты, рецепты и ларьки (`KIOSKS`: название, продавец, его продукты, реплики, музыка, с какого рекорда открывается, где стоит на улице). Пышечная (тётя Валя, 6 продуктов, 9 рецептов, открывается с 600 м) есть в игре с 0.5. Ларёк включается, только когда есть все его картинки: `art/gpt/stall_pyshki.png`, `valya_*.png`, `valya_small_*.png`, `food_<id>.png` (`GameData.kiosk_ready`). Описание: `/mnt/project-files/godot/design/pyshechnaya.md`.
+- `scripts/data.gd`: продукты, рецепты и ларьки (`KIOSKS`: название, продавец, его продукты, реплики, музыка, с какого рекорда открывается, где стоит на улице). Пышечная (тётя Валя, 6 продуктов, 9 рецептов, открывается с 600 м) есть в игре с 0.5. Ларёк включается, только когда есть все его картинки: `art/gpt/stall_pyshki.png`, `valya_*.png`, `valya_small_*.png`, `food_<id>.png` (`GameData.kiosk_ready`). Описание: `/mnt/project-files/godot/design/pyshechnaya.md`. Чебуречная (Михалыч, 6 продуктов, 9 рецептов, открывается с 1000 м, павильон правее Пышечной: `stall_x`, `counter`, `says` в `KIOSKS`) в коде с 0.5c и включится с картинками `stall_chebureki.png`, `mihalych_*.png`, `mihalych_small_*.png` и иконками блюд; описание `/mnt/project-files/godot/design/chebureki.md`. Поле `h` у продукта: толчок вбок, пока он горит (аджика).
 - `scripts/awards.gd`: 21 достижение (и ещё 4 Пышечной, видны, когда она готова), всплывашка «Достижение!» и экран со списком. Когда что получено, решает `main.gd` (`_award`, `_check_progress`, `_check_height`).
 - `scripts/book.gd`: книга рецептов, по вкладке на каждый открытый ларёк; у неоткрытого блюда виден один продукт, если оба уже есть в ларьке.
 - `scripts/tutorial.gd`: обучение, бумажка с подсказкой и клавишами в [скобках], хвостик к цели, мигающая рамка. Какой шаг показать, решает `main.gd` (`_tutorial`, `_tut_want`).
