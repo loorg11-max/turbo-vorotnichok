@@ -1,0 +1,8 @@
+# Шрифты
+
+Оба шрифта пиксельные, с кириллицей, под лицензией SIL Open Font License 1.1 (https://openfontlicense.org): их можно встраивать в игру и продавать игру с ними. Сами файлы шрифтов нельзя продавать отдельно, а при распространении нужно сохранить строку авторства ниже.
+
+- `Tiny5-Regular.ttf`: основной текст, размер 8 (или 16 для крупных цифр). Copyright 2024 The tiny5 Project Authors (https://github.com/Gissio/font_tiny5).
+- `PressStart2P-Regular.ttf`: заголовки, только размер 8. Copyright 2012 The Press Start 2P Project Authors (cody@zone38.net), with Reserved Font Name "Press Start 2P".
+
+Размер всегда кратен 8: у обоих шрифтов сетка 8 точек на кегль, иначе буквы размываются. Сглаживание выключено в коде (`main.gd`, `_pixel_font`).
