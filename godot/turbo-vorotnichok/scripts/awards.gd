@@ -41,7 +41,7 @@ const TOAST_TIME := 2.2
 signal shown  # всплывашка появилась: main.gd играет звук
 const GOLD := ["#ffd84a", "#fff3a8", "#c8741e"]
 const GRAY := ["#6b6878", "#8a8796", "#4a4756"]
-## Кубок 14×13: O обводка, Y основной цвет, H блик, D тень.
+## Кубок 14×13 на случай, если нет картинки art/ui/icon_cup.png: O обводка, Y основной цвет, H блик, D тень.
 const CUP := [
 	"..OOOOOOOOOO..",
 	"OOOHYYYYYYDOOO",
@@ -105,6 +105,10 @@ func unlock(id: String, quiet := false) -> bool:
 
 func cup(on: bool) -> Texture2D:
 	if cups.has(on):
+		return cups[on]
+	var art := "res://art/ui/icon_cup%s.png" % ("" if on else "_off")
+	if ResourceLoader.exists(art):
+		cups[on] = load(art)
 		return cups[on]
 	var c: Array = GOLD if on else GRAY
 	var colors := {"O": Pal.OUTLINE, "Y": Color(c[0]), "H": Color(c[1]), "D": Color(c[2])}

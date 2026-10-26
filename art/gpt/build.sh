@@ -69,3 +69,31 @@ fi
 if [ -d split/pfood ]; then
   for f in split/pfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
 fi
+
+# Чебуречная (23–26). Тоже включается сама, когда есть все картинки.
+[ -f raw/23_chebureki_stall.png ] && px raw/23_chebureki_stall.png $OUT/stall_chebureki.png --size 190x0 --key --crop --extra 173a29,1f4d35,2b5a37,3a6b45 --godot gpt/stall_chebureki.png
+if [ -f raw/24_mihalych.png ]; then
+  python3 -I $T/split_sheet.py raw/24_mihalych.png split/mihalych --grid 3x1 --main --names happy,shock,grumpy
+  for n in happy shock grumpy; do px split/mihalych/$n.png $OUT/mihalych_$n.png --size 0x64 --key --crop --extra f0a060,f7b77a,c8603c,e07850 --godot gpt/mihalych_$n.png; done
+  python3 -I $T/small_sprite.py raw/24_mihalych.png $OUT --cols 3 --names happy,shock,grumpy --height 30 --prefix mihalych_small --godot gpt
+fi
+if [ -f raw/25_chebureki_food.png ]; then
+  python3 -I $T/split_sheet.py raw/25_chebureki_food.png split/cfood --names dough,mince,oil,cheese,adjika,kvass
+fi
+if [ -f raw/26_chebureki_dishes.png ]; then
+  python3 -I $T/split_sheet.py raw/26_chebureki_dishes.png split/cfood --names cheburek,chcheese,belyash,fire,firekvass,okroshka,donut,fshawarma,station
+fi
+if [ -d split/cfood ]; then
+  for f in split/cfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
+fi
+
+# Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.
+# Книга из 10d в маленьком размере не читается, на кнопке книги осталась шаурма.
+if [ -f raw/10d_ui_icons.png ]; then
+  python3 -I $T/split_sheet.py raw/10d_ui_icons.png split/icons --grid 4x2 --names gas,belly,cup,cup_off,book,medal_gold,medal_silver,medal_bronze
+  px split/icons/gas.png $OUT/icon_gas.png --size 0x16 --key --crop --godot ui/icon_gas.png
+  px split/icons/belly.png $OUT/icon_belly.png --size 0x22 --key --crop --godot ui/icon_belly.png
+  for n in cup cup_off; do px split/icons/$n.png $OUT/icon_$n.png --size 0x14 --key --crop --godot ui/icon_$n.png; done
+  for n in medal_gold medal_silver; do px split/icons/$n.png $OUT/icon_$n.png --size 0x26 --key --crop --godot ui/icon_$n.png; done
+  px split/icons/medal_bronze.png $OUT/icon_medal_bronze.png --size 0x26 --key --crop --extra c87a4a,a65a32,e09a6a --godot ui/icon_medal_bronze.png
+fi

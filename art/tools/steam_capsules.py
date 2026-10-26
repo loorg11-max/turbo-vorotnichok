@@ -19,15 +19,16 @@ from PIL import Image
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 OUTLINE = (9, 12, 28)
 
-# имя: (ширина, высота, какой арт, доля ширины под логотип, где логотип: (x, y) в долях, 0 = без логотипа)
+# имя: (ширина, высота, какой арт, доля ширины под логотип (0 = без логотипа), где логотип: (x, y) в долях, точка кадра)
 SIZES = {
-    "header": (920, 430, "wide", 0.50, (0.04, 0.5)),
-    "small": (462, 174, "wide", 0.62, (0.04, 0.5)),
-    "main": (1232, 706, "wide", 0.46, (0.04, 0.5)),
-    "vertical": (748, 896, "tall", 0.86, (0.5, 0.04)),
-    "library_capsule": (600, 900, "tall", 0.86, (0.5, 0.04)),
-    "library_hero": (3840, 1240, "wide", 0, None),
+    "header": (920, 430, "wide", 0.50, (0.04, 0.5), (0.6, 0.25)),
+    "small": (462, 174, "wide", 0.62, (0.04, 0.5), (0.6, 0.2)),
+    "main": (1232, 706, "wide", 0.46, (0.04, 0.5), (0.6, 0.3)),
+    "vertical": (748, 896, "tall", 0.62, (0.5, 0.02), (0.5, 0.0)),
+    "library_capsule": (600, 900, "tall", 0.62, (0.5, 0.02), (0.5, 0.0)),
+    "library_hero": (3840, 1240, "wide", 0, None, (0.6, 0.35)),
 }
+# последнее в строке: точка кадра (доли ширины и высоты), вокруг которой обрезать арт
 
 
 def key_out_magenta(img):
@@ -79,9 +80,8 @@ def main():
     art = {k: Image.open(os.path.join(a.src, f)).convert("RGBA") for k, f in need.items()}
     logo = key_out_magenta(art.pop("logo"))
     os.makedirs(a.out, exist_ok=True)
-    for name, (w, h, kind, share, at) in SIZES.items():
-        # логотип слева, поэтому середина кадра чуть правее
-        c = cover(art[kind], w, h, (0.6, 0.5) if kind == "wide" else (0.5, 0.6))
+    for name, (w, h, kind, share, at, focus) in SIZES.items():
+        c = cover(art[kind], w, h, focus)
         if share:
             place(c, logo, share, at)
         c.convert("RGB").save(os.path.join(a.out, name + ".png"), optimize=True)

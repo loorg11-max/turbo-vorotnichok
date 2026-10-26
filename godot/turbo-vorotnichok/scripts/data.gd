@@ -126,7 +126,7 @@ const KIOSKS := {
 	"chebureki": {
 		"title": "ЧЕБУРЕЧНАЯ", "name": "Чебуречная", "seller": "mihalych", "who": "Михалыч", "to": "Михалычу",
 		"stall": "res://art/gpt/stall_chebureki.png", "unlock": 1000.0, "x": 116.0, "music": "chebureki",
-		"stall_x": 480.0, "counter": Vector2(44, 84), "says": Vector2(92, -3),
+		"stall_x": 480.0, "counter": Vector2(44, 84), "says": Vector2(40, -3),
 		"base": ["dough", "mince", "oil", "cheese", "adjika", "kvass"],
 		"hello": "Проходи, пассажир, чебуреки горячие!", "first": "Проходи, пассажир! Чебуреки горячие, квас холодный.",
 		"new_dish": "Во! Как у нас в депо делали!", "known_dish": "Было уже. Не первый рейс.",

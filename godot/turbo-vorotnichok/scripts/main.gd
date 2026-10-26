@@ -57,9 +57,9 @@ const FONT_BODY := preload("res://fonts/Tiny5-Regular.ttf")
 const FONT_TITLE := preload("res://fonts/PressStart2P-Regular.ttf")
 ## Медали за высоту: от большей к меньшей.
 const MEDALS := [
-	[1000.0, "Золото", Color("#ffd84a"), Color("#c8741e")],
-	[600.0, "Серебро", Color("#d9d6cf"), Color("#7d7871")],
-	[250.0, "Бронза", Color("#d08a4e"), Color("#7a3f1d")],
+	[1000.0, "Золото", Color("#ffd84a"), Color("#c8741e"), "gold"],
+	[600.0, "Серебро", Color("#d9d6cf"), Color("#7d7871"), "silver"],
+	[250.0, "Бронза", Color("#d08a4e"), Color("#7a3f1d"), "bronze"],
 ]
 const LANDING_LINES := ["Ой...", "Ещё разок!", "Где мой галстук?", "Мягко сел!"]
 const OFFICE_M := 130.0  # крыша офиса: башня 520 точек
@@ -536,10 +536,12 @@ func _build_hud() -> void:
 
 	lbl.thrust = _gauge(Vector2(4, 84), 32.0, Pal.GAS[1], Pal.GAS[0])
 	hud.add_child(_at(_label("ТЯГА", 8, Pal.CREAM), Vector2(3, 204)))
+	_hud_icon("res://art/ui/icon_gas.png", Vector2(17, 82))
 	lbl.stage = _at(_label("", 8), Vector2(4, 216))
 	hud.add_child(lbl.stage)
 	lbl.belly = _gauge(Vector2(610, 84), 1.0, Pal.RED, Color("#ff7a5c"))
 	hud.add_child(_at(_label("ПУЗО", 8, Pal.CREAM), Vector2(609, 204)))
+	_hud_icon("res://art/ui/icon_belly.png", Vector2(623, 82))
 
 	lbl.msg = _label("", 16, Pal.NEON)
 	lbl.msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -580,6 +582,16 @@ func _gauge(pos: Vector2, max_value: float, fill: Color, shine: Color) -> Progre
 	bar.add_theme_stylebox_override("fill", st)
 	tube.add_child(bar)
 	return bar
+
+
+## Значок над шкалой: bottom — середина его нижнего края. Без картинки ничего не ставит.
+func _hud_icon(path: String, bottom: Vector2) -> void:
+	if not ResourceLoader.exists(path):
+		return
+	var r := TextureRect.new()
+	r.texture = load(path)
+	r.position = (bottom - Vector2(r.texture.get_width() / 2.0, r.texture.get_height())).floor()
+	hud.add_child(r)
 
 
 func _at(c: Control, pos: Vector2) -> Control:
@@ -1254,7 +1266,8 @@ func _finish() -> void:
 		lbl.r_medal_icon.texture = null
 		lbl.r_medal.text = "До бронзы %d м" % ceili(MEDALS[2][0] - f.max)
 	else:
-		lbl.r_medal_icon.texture = _medal_icon(medal[2], medal[3])
+		var art := "res://art/ui/icon_medal_%s.png" % medal[4]
+		lbl.r_medal_icon.texture = load(art) if ResourceLoader.exists(art) else _medal_icon(medal[2], medal[3])
 		lbl.r_medal.text = medal[1]
 		snd.play("medal")
 	lbl.r_text.text = "Высота: %d м\nДальность: %d м\nВ воздухе: %.1f с\nРекорд: %d м" % [int(f.max), dist, f.air, int(best)]

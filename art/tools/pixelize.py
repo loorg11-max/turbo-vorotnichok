@@ -87,10 +87,12 @@ def main():
     ap.add_argument("--trim", action="store_true", help="обрезать прозрачные края")
     ap.add_argument("--crop", action="store_true", help="с --key: сначала обрезать исходник по рисунку, тогда --size задаёт размер самого предмета")
     ap.add_argument("--palette", default="turbo-full", help="turbo-full (57 цветов) или turbo32 (строгая)")
+    ap.add_argument("--extra", default="", help="ещё цвета к палитре только для этой картинки, через запятую: 1f4d35,2b5a37")
     ap.add_argument("--godot", help="ещё скопировать в art/ проекта Godot по этому пути, например bg/sky.png")
     a = ap.parse_args()
 
     pal = load_palette(os.path.join(PALETTE_DIR, a.palette + ".hex"))
+    pal += [tuple(int(h[i:i + 2], 16) for i in (0, 2, 4)) for h in a.extra.split(",") if h]
     im = Image.open(a.src).convert("RGB")
     if a.key and a.crop:
         bbox = content_bbox(im, a.tol)

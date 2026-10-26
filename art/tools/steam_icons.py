@@ -1,8 +1,8 @@
 """Значки достижений для Steam: 256×256 JPG, открытый и закрытый (серый) на каждое достижение.
 
 Рисуются из картинок игры: холст 128×128 в стиле значка exe (синий фон, жёлтая рамка),
-картинка по центру с целым увеличением, затем всё ×2. Для ларька без картинок ставится кубок,
-после прихода картинок скрипт надо запустить снова.
+картинка по центру с целым увеличением, затем всё ×2. Если нужной картинки нет, ставится кубок,
+после её прихода скрипт надо запустить снова.
 
     python3 art/tools/steam_icons.py      # из корня общей папки
 Пишет art/steam/achievements/ACH_<ID>.jpg, ACH_<ID>_locked.jpg и лист для просмотра art/steam/achievements.png.
@@ -24,10 +24,10 @@ GOLD = (255, 216, 74)
 GRAY = (107, 104, 120)
 GAS = [(208, 237, 78), (162, 213, 118), (126, 194, 107), (63, 122, 58)]
 
-# достижение: что нарисовать. hero:строка,кадр — кадр Геннадия; food:id; gpt:файл; medal:цвета; cup
+# достижение: что нарисовать. hero:строка,кадр — кадр Геннадия; food:id; gpt:файл; ui:файл из art/ui; medal:цвета; cup
 PICK = {
     "first": "hero:4,0", "dud": "hero:6,1", "office": "hero:3,2",
-    "bronze": "medal:d08a4e,7a3f1d", "silver": "medal:d9d6cf,7d7871", "clouds": "gpt:cloud_small",
+    "bronze": "ui:icon_medal_bronze", "silver": "ui:icon_medal_silver", "clouds": "gpt:cloud_small",
     "far": "gpt:mark_kite", "district": "trail", "long": "gpt:mark_balloon", "perfect": "hero:3,1",
     "boom": "food:fizz", "salute": "food:sweetfizz", "squeeze": "hero:5,1",
     "dish1": "food:shawarma", "dish6": "food:double", "dish_all": "food:lunch", "mush10": "food:mush",
@@ -118,6 +118,9 @@ def picture(kind):
         return gpt("food_" + kind[5:])
     if kind.startswith("gpt:"):
         return gpt(kind[4:])
+    if kind.startswith("ui:"):
+        p = os.path.join(GAME, "art", "ui", kind[3:] + ".png")
+        return Image.open(p).convert("RGBA") if os.path.exists(p) else None
     if kind.startswith("medal:"):
         return medal(*kind[6:].split(","))
     return {"trail": trail, "three": three}[kind]()
