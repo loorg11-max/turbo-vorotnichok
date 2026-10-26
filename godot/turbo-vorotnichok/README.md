@@ -1,6 +1,6 @@
 # Турбо белый воротничок: каркас на Godot 4
 
-Перенос браузерного прототипа v1 на Godot 4.3 (GDScript). Баланс, продукты и 11 рецептов те же. Текущая версия 0.5c (`config/version` в project.godot).
+Перенос браузерного прототипа v1 на Godot 4.3 (GDScript). Баланс, продукты и 11 рецептов те же. Текущая версия 0.5d (`config/version` в project.godot).
 
 ## Как запустить
 
@@ -19,7 +19,7 @@
 
 ## Версия для Windows
 
-Готовая сборка: `/mnt/project-files/godot/builds/TurboVorotnichok-0.5c-windows.zip` (один exe, данные игры внутри, установка не нужна).
+Готовая сборка: `/mnt/project-files/godot/builds/TurboVorotnichok-0.5d-windows.zip` (один exe, данные игры внутри, установка не нужна).
 Пересобрать: `godot --headless --path . --export-release "Windows" build/windows/TurboVorotnichok.exe` (пресеты Windows, Linux и Web в export_presets.cfg, нужны шаблоны экспорта Godot 4.3).
 Сохранения на Windows: `%APPDATA%\TurboVorotnichok\save.cfg` (рекорд, рецепты, поднос, достижения, пройденные подсказки, счётчики полётов и жижи, режим окна, громкость).
 Значок exe с 0.5b свой (`art/icon.ico`, 7 размеров из `art/icon.png`), в свойствах файла название и версия игры. Godot ставит их через rcedit. На Windows достаточно указать rcedit в Редактор → Настройки → Экспорт → Windows. На Linux вместо rcedit и wine работает `/mnt/project-files/godot/tools/rcedit-shim/` (Node, библиотека resedit): там `npm install`, в настройках редактора `export/windows/wine` указывает на скрипт `exec node <путь>/rcedit.js "$@"`, а `export/windows/rcedit` на любой существующий файл.
@@ -47,6 +47,7 @@
 - `scripts/shop.gd`: окно «Талоны» (кнопка внизу ларька): задания и покупка прокачки.
 - `scripts/fx.gd`: облачка газа, белые следы скорости, стрелка прицела, линейка высоты (риска каждые 50 м) и пунктир прошлого рекорда.
 - `scripts/pc.gd`: пауза, полный экран, автопауза при сворачивании окна, громкость, «Подсказки заново», окно «Управление» (по две клавиши на действие, сохраняются в save.cfg, раздел controls).
+- `scripts/steam.gd`: Steam через GodotSteam (GDExtension в `addons/godotsteam`, пока не установлен). Достижения `ACH_<ID>` из `awards.gd`, при запуске туда переносятся уже открытые; таблицы рекордов `height`, `distance` и `daily_ГГГГ-ММ-ДД`, игра создаёт их сама. Без GodotSteam или без запущенного Steam ничего не делает, в прогоне `--shot` выключен. Облачные сохранения делает Steam Auto-Cloud (`save.cfg`). Что настроить в Steamworks: `/mnt/project-files/godot/design/steam.md`. Проверка на поддельном Steam: `/mnt/project-files/godot/tools/steam_test.gd`.
 - `scripts/daily.gd` (класс `Daily`): испытание дня. Условия зависят только от даты, поэтому у всех игроков одинаковые: цель (выше, дальше или дольше в воздухе), 4 продукта из всех ларьков (из них готовится хотя бы 3 блюда, 2 из разных продуктов) и поднос на 2 или 3 блюда. Кнопка «Испытание дня» в ларьке появляется после 3 полётов; у испытания свой поднос. За первый полёт дня 3 талона, лучший результат дня хранится в сохранении (`daily`), полёты идут и в обычные рекорды. Проверка условий на 30 дней вперёд: `/mnt/project-files/godot/tools/daily_test.gd`.
 - `scripts/controls.gd` (класс `Controls`): действия InputMap `left`, `right`, `squeeze`, `again`, `pause`, `back`, `fullscreen` с клавишами (по месту на клавиатуре) и кнопками геймпада; подписи клавиш для подсказок (`label`, `caps`, `pair`) меняются, когда игрок берёт геймпад (`Controls.pad`). С геймпада ларёк и окна выбираются крестовиной, выбранную кнопку обводит жёлтая рамка (`UiSkin.show_focus`). Проверка: `/mnt/project-files/godot/tools/pad_test.gd` (запуск как sky_shot.gd).
 - `fonts/`: пиксельные шрифты с кириллицей (Tiny5 для текста, Press Start 2P для заголовков), лицензия OFL, подробности в `fonts/README.md`.

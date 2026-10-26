@@ -92,6 +92,7 @@ var tray_box: VBoxContainer
 var go_btn: Button
 var pc: Node
 var snd: Node
+var steam: Node
 var hero_bubble: Bubble
 var seller_bubble: Bubble
 var awards: Control
@@ -111,6 +112,9 @@ func _ready() -> void:
 	_pixel_font(FONT_BODY)
 	_pixel_font(FONT_TITLE)
 	_load()
+	steam = Node.new()
+	steam.set_script(preload("res://scripts/steam.gd"))
+	add_child(steam)
 	# звук раньше интерфейса: он подписывает щелчок на каждую новую кнопку
 	snd = Node.new()
 	snd.set_script(preload("res://scripts/sound.gd"))
@@ -125,6 +129,7 @@ func _ready() -> void:
 	seller_bubble.anchor = world.says(kiosk)
 	add_child(seller_bubble)
 	_check_progress(true)
+	steam.sync(awards.got)
 	pc = Node.new()
 	pc.set_script(preload("res://scripts/pc.gd"))
 	add_child(pc)
@@ -227,6 +232,7 @@ func _buy(id: String) -> void:
 
 ## Достижение: всплывашка и сохранение, если оно новое.
 func _award(id: String, quiet := false) -> void:
+	steam.achieve(id)
 	if awards.unlock(id, quiet):
 		_save()
 		_render_counts()
@@ -1026,6 +1032,10 @@ func _daily_texts() -> void:
 func _daily_result(r: Dictionary) -> String:
 	_daily_check()
 	var v := Daily.score(dr.goal, r)
+	if dr.goal == "air":
+		steam.score("daily_" + dr.day, int(v), steam.SHOW_SECONDS)
+	else:
+		steam.score("daily_" + dr.day, int(v))
 	var first: bool = daily.tries == 0
 	var top: bool = first or v > daily.best
 	daily.tries += 1
@@ -1206,6 +1216,8 @@ func _finish() -> void:
 	var news: Array = GameData.open_kiosks(best).filter(func(k): return not was_open.has(k))
 	stats.flights += 1
 	_save()
+	steam.score("height", int(f.max))
+	steam.score("distance", dist)
 	_check_progress()
 	if f.max < 10.0:
 		_award("dud")
