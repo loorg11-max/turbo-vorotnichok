@@ -22,9 +22,13 @@ const NAMES := {KEY_SPACE: "Пробел", KEY_ENTER: "Enter", KEY_KP_ENTER: "Nu
 	KEY_UP: "↑", KEY_DOWN: "↓", KEY_ESCAPE: "Esc", KEY_SHIFT: "Shift", KEY_CTRL: "Ctrl", KEY_ALT: "Alt",
 	KEY_TAB: "Tab", KEY_BACKSPACE: "Backspace"}
 const PAD_NAMES := {"left": "←", "right": "→", "squeeze": "A", "again": "Y", "pause": "Start", "back": "B"}
+## Кнопки на экране телефона (scripts/touch.gd). «again» на экране нет: на итогах жмут кнопки окна.
+const TOUCH_NAMES := {"left": "←", "right": "→", "squeeze": "БУЛКИ", "again": "", "pause": "II", "back": ""}
 
 ## Последнее, чем играли: true, если геймпадом. Подписи и рамка выбора смотрят сюда.
 static var pad := false
+## true, если пальцем по экрану: тогда видны кнопки касания и подписи под них.
+static var touch := false
 static var keys := {}  # действие → [physical_keycode, ...]
 
 
@@ -99,13 +103,21 @@ static func _apply(a: String) -> void:
 ## Запомнить, чем сейчас играют. Возвращает true, если поменялось.
 static func track(e: InputEvent) -> bool:
 	var now := pad
-	if e is InputEventJoypadButton or (e is InputEventJoypadMotion and absf(e.axis_value) > 0.5):
-		now = true
-	elif e is InputEventKey or e is InputEventMouseButton:
+	var finger := touch
+	if e is InputEventScreenTouch:
 		now = false
-	if now == pad:
+		finger = true
+	elif e is InputEventJoypadButton or (e is InputEventJoypadMotion and absf(e.axis_value) > 0.5):
+		now = true
+		finger = false
+	# мышь, которую Godot изображает из касания, касание не отменяет
+	elif e is InputEventKey or (e is InputEventMouseButton and e.device != InputEvent.DEVICE_ID_EMULATION):
+		now = false
+		finger = false
+	if now == pad and finger == touch:
 		return false
 	pad = now
+	touch = finger
 	return true
 
 
@@ -117,6 +129,8 @@ static func key_name(k: int) -> String:
 
 ## Подпись действия для подсказок: клавиши через «/» или кнопка геймпада.
 static func label(a: String) -> String:
+	if touch:
+		return TOUCH_NAMES.get(a, "")
 	if pad:
 		return PAD_NAMES.get(a, "")
 	var arr: Array = keys.get(a, []).filter(func(k): return k != KEY_KP_ENTER)
@@ -130,6 +144,8 @@ static func label(a: String) -> String:
 
 ## Для обучения: каждая клавиша в [скобках], чтобы нарисовалась клавишей.
 static func caps(a: String) -> String:
+	if touch:
+		return "[%s]" % TOUCH_NAMES.get(a, "")
 	if pad:
 		return "[%s]" % PAD_NAMES.get(a, "")
 	var out: Array = []
@@ -142,6 +158,8 @@ static func caps(a: String) -> String:
 
 ## Два действия парами по слотам: «← → / A D» (sep « / ») или «[←] [→] или [A] [D]» (caps).
 static func pair(a: String, b: String, caps := false) -> String:
+	if touch:
+		return "[←] [→]" if caps else "← →"
 	if pad:
 		return "[←] [→] или стик" if caps else "стик или ← →"
 	var ka: Array = keys.get(a, [])
@@ -156,4 +174,6 @@ static func pair(a: String, b: String, caps := false) -> String:
 
 ## «Esc: закрыть» или «B: закрыть».
 static func close_hint() -> String:
+	if touch:
+		return "Крестик: закрыть"
 	return "B: закрыть" if pad else "Esc: закрыть"

@@ -3,12 +3,17 @@ extends Control
 ## потом зовёт open() снова с новыми числами.
 
 signal buy(id: String)
+signal ad  # ролик за талоны (только на Яндексе)
 
 var panel: PanelContainer
 var talons_lbl: Label
 var tasks_box: VBoxContainer
 var shop_box: VBoxContainer
 var hint_lbl: Label
+var ads := false  # показывать ли строку с роликом и сколько за него талонов: ставит main.gd
+var ad_talons := 3
+var ad_btn: Button
+var ad_row: HBoxContainer
 
 
 func _ready() -> void:
@@ -51,6 +56,16 @@ func _ready() -> void:
 	tasks_box = VBoxContainer.new()
 	tasks_box.add_theme_constant_override("separation", 2)
 	v.add_child(tasks_box)
+	ad_row = HBoxContainer.new()
+	var al := _label("Посмотреть рекламу и получить талоны в подарок", Pal.WHITE)
+	al.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ad_row.add_child(al)
+	ad_btn = Button.new()
+	ad_btn.icon = Perks.talon_icon()
+	ad_btn.custom_minimum_size = Vector2(96, 0)
+	ad_btn.pressed.connect(func(): ad.emit())
+	ad_row.add_child(ad_btn)
+	v.add_child(ad_row)
 	v.add_child(_label("ПРОКАЧКА: талон за каждые 100 м высоты в полёте", Pal.ORANGE))
 	shop_box = VBoxContainer.new()
 	shop_box.add_theme_constant_override("separation", 4)
@@ -116,5 +131,7 @@ func open(talons: int, levels: Dictionary, tasks: Array) -> void:
 			b.pressed.connect(func(): buy.emit(id))
 		row.add_child(b)
 		shop_box.add_child(row)
+	ad_row.visible = ads
+	ad_btn.text = "Реклама: +%d" % ad_talons
 	hint_lbl.text = Controls.close_hint()
 	visible = true

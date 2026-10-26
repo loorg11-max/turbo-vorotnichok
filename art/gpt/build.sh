@@ -86,6 +86,8 @@ fi
 if [ -d split/cfood ]; then
   for f in split/cfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
 fi
+# корзина фритюра из 25 в 28 точках превращается в кашу из сетки: масло рисуем по точкам
+[ -f raw/25_chebureki_food.png ] && python3 -I $T/draw_oil.py $OUT/food_oil.png --godot gpt/food_oil.png
 
 # Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.
 # Книга из 10d в маленьком размере не читается, на кнопке книги осталась шаурма.

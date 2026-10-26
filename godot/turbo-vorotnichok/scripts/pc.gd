@@ -265,7 +265,10 @@ func _catch_key(e: InputEvent) -> void:
 
 
 func _hint() -> void:
-	hint.text = "Start: пауза" if Controls.pad else "Esc: пауза · F11: полный экран"
+	if Controls.touch:
+		hint.text = "II: пауза"
+	else:
+		hint.text = "Start: пауза" if Controls.pad else "Esc: пауза · F11: полный экран"
 
 
 func _notification(what: int) -> void:

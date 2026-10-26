@@ -93,6 +93,8 @@ var go_btn: Button
 var pc: Node
 var snd: Node
 var steam: Node
+var yandex: Node
+const AD_TALONS := 3  # талонов за ролик на Яндексе
 var hero_bubble: Bubble
 var seller_bubble: Bubble
 var awards: Control
@@ -111,6 +113,9 @@ func _ready() -> void:
 	get_tree().auto_accept_quit = false  # выход крестиком идёт через quit_game
 	_pixel_font(FONT_BODY)
 	_pixel_font(FONT_TITLE)
+	yandex = Node.new()
+	yandex.set_script(preload("res://scripts/yandex.gd"))
+	add_child(yandex)
 	_load()
 	steam = Node.new()
 	steam.set_script(preload("res://scripts/steam.gd"))
@@ -130,15 +135,20 @@ func _ready() -> void:
 	add_child(seller_bubble)
 	_check_progress(true)
 	steam.sync(awards.got)
+	var touch := CanvasLayer.new()
+	touch.set_script(preload("res://scripts/touch.gd"))
+	add_child(touch)
 	pc = Node.new()
 	pc.set_script(preload("res://scripts/pc.gd"))
 	add_child(pc)
 	_walk_in()
+	yandex.loaded.call_deferred()
 
 
 # ---------------- сохранение ----------------
 
 func _load() -> void:
+	yandex.pull(SAVE_PATH)
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		known = cfg.get_value("game", "known", [])
@@ -181,7 +191,9 @@ func _save() -> void:
 	cfg.set_value("game", "levels", levels)
 	cfg.set_value("game", "task_next", task_next)
 	cfg.set_value("game", "tasks", tasks)
+	cfg.set_value("game", "saved_at", int(Time.get_unix_time_from_system()))
 	cfg.save(SAVE_PATH)
+	yandex.push(SAVE_PATH)
 
 
 ## Держит открытыми три задания: пустые места занимают следующие по списку.
@@ -216,6 +228,17 @@ func _task_count(kind: String, add: int) -> void:
 				(func(): lbl.tip.text = text).call_deferred()
 			_render_counts()
 	_save()
+
+
+## Ролик на Яндексе за талоны (кнопка в окне «Талоны»).
+func _ad_for_talons() -> void:
+	yandex.rewarded(func(ok: bool):
+		if ok:
+			talons += AD_TALONS
+			snd.play("medal")
+			_save()
+			_render_counts()
+		shop.open(talons, levels, tasks))
 
 
 func _buy(id: String) -> void:
@@ -392,6 +415,9 @@ func _build_ui() -> void:
 	shop = Control.new()
 	shop.set_script(preload("res://scripts/shop.gd"))
 	shop.buy.connect(_buy)
+	shop.ads = yandex.on
+	shop.ad_talons = AD_TALONS
+	shop.ad.connect(_ad_for_talons)
 	ui.add_child(shop)
 	awards = Control.new()
 	awards.set_script(preload("res://scripts/awards.gd"))
@@ -661,7 +687,7 @@ func _keys_text() -> String:
 		State.FLIGHT:
 			return "%s: наклон · %s: сжать булки" % [Controls.pair("left", "right"), Controls.label("squeeze")]
 		State.RESULT:
-			return "%s: тот же поднос" % Controls.label("again")
+			return "" if Controls.touch else "%s: тот же поднос" % Controls.label("again")
 	return ""
 
 
@@ -1176,6 +1202,7 @@ func _launch() -> void:
 	vy = cos(a) * v0
 	ang = a
 	state = State.FLIGHT
+	yandex.gameplay(true)
 	sky_layer.reset()
 	tut.finish("aim")
 	fx.aim_visible = false
@@ -1229,6 +1256,8 @@ func _finish() -> void:
 	stats.flights += 1
 	_save()
 	steam.score("height", int(f.max))
+	yandex.score("height", int(best))
+	yandex.gameplay(false)
 	steam.score("distance", dist)
 	_check_progress()
 	if f.max < 10.0:
@@ -1256,6 +1285,7 @@ func _finish() -> void:
 	lbl.r_talons.text = "Талоны: +%d за высоту, всего %d" % [earned, talons]
 	if done_lines.size():
 		lbl.r_talons.text += "\n" + "\n".join(done_lines)
+	yandex.between_flights(stats.flights)
 	lbl.r_title.text = "ОБЛАКА ПОКОРЕНЫ!" if f.won else ("НОВЫЙ РЕКОРД!" if is_best else "ПРИЗЕМЛИЛСЯ")
 	var medal: Array = []
 	for m in MEDALS:
