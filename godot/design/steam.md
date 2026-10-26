@@ -5,7 +5,7 @@
 ## Что уже сделано
 
 - **Код** (`scripts/steam.gd`). Работает через GodotSteam. Пока GodotSteam нет или Steam не запущен, игра просто работает как раньше. Проверено на поддельном Steam: `godot/tools/steam_test.gd`.
-- **Достижения.** Все 29, при первом запуске со Steam туда переносятся и те, что уже открыты в сохранении.
+- **Достижения.** Все 31 (2 последних видны, когда в игре появятся Хот-доги), при первом запуске со Steam туда переносятся и те, что уже открыты в сохранении.
 - **Таблицы рекордов.** «Высота» (`height`), «Дальность» (`distance`) и отдельная таблица на каждый день испытания (`daily_2026-10-26` и т. д.). Все три игра создаёт сама при первом результате. Испытание дня одинаковое у всех игроков, поэтому его таблица честная.
 - **Значки достижений** 256×256, открытые и серые: `art/steam/achievements/`, лист для просмотра `art/steam/achievements.png`. Делает `art/tools/steam_icons.py`. Медали взяты из значков 10d.
 - **Скриншоты** 1920×1080 из самой игры: `art/steam/screenshots/` (8 штук, Steam просит не меньше 5).
@@ -15,7 +15,7 @@
 
 1. Зарегистрироваться в Steamworks (partner.steamgames.com) и оплатить взнос за игру, $100. Steam выдаст номер игры (App ID).
 2. Прислать нам App ID. Мы впишем его в `steam.gd` (константа `APP_ID`) и соберём версию со Steam.
-3. В Steamworks, раздел «Статистика и достижения», завести 29 достижений по таблице ниже и загрузить значки из `art/steam/achievements/`: файл без приставки для открытого, `_locked` для закрытого.
+3. В Steamworks, раздел «Статистика и достижения», завести 31 достижение по таблице ниже и загрузить значки из `art/steam/achievements/`: файл без приставки для открытого, `_locked` для закрытого.
 4. Там же, раздел «Steam Cloud», включить Auto-Cloud:
    - квота: 1 файл, 1 МБ;
    - путь: корень `WinAppDataRoaming`, подпапка `TurboVorotnichok`, шаблон `save.cfg`;
@@ -62,3 +62,5 @@
 | `ACH_CATCH` | Пышка с неба | Поймать в полёте пышку, улетевшую из Пышечной. | Donut from the Sky | Catch a donut that flew out of the Donut Shop. |
 | `ACH_DISH_ALL_CHEBUREKI` | Всё меню Михалыча | Открыть все 9 рецептов Чебуречной. | Mikhalych's Whole Menu | Discover all 9 Cheburek Stall recipes. |
 | `ACH_RAIL` | Дальний рейс | Улететь вбок на 1500 м с аджикой на подносе. | Long-Distance Train | Fly 1500 m sideways with adjika on the tray. |
+| `ACH_DISH_ALL_HOTDOGS` | Всё меню Жоры | Открыть все 9 рецептов Хот-догов. | Zhora's Full Menu | Discover all 9 hot dog stand recipes. |
+| `ACH_GOAL` | Гол в облака | Подняться на 2000 м с горчицей на подносе. | Top Corner | Reach 2000 m with mustard on the tray. |

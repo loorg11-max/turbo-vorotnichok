@@ -573,8 +573,75 @@ def render_train(song, rng, sr=MSR):
     return norm(out - out.mean(), 0.7)
 
 
+# Хот-доги у стадиона: марш духового оркестра на трибуне в до мажоре, хлопки болельщиков, свисток судьи.
+HOTDOGS = {
+    "bpm": 120,
+    "lead": ["7 - 7 4 7 - 12 .", "11 - 7 11 14 - - .", "9 - 5 9 12 - 9 .", "7 - 11 14 11 - 7 .",
+             "12 - 12 11 12 - 7 .", "9 - 9 7 5 - 9 .", "7 9 11 12 14 - 11 7", "12 - - . 7 . 12 ."],
+    "roots": [0, 7, 5, 7, 0, 5, 7, 0],
+}
+MARCH_CHORD = {0: [0, 4, 7], 5: [5, 9, 12], 7: [7, 11, 14]}
+
+
+def clap(rng, sr=MSR):
+    """Хлопок толпы: три коротких шумовых щелчка подряд."""
+    n = n_of(0.12, sr)
+    x = np.zeros(n)
+    for k, at in enumerate((0.0, 0.011, 0.022)):
+        m = n_of(0.03 if k == 2 else 0.008, sr)
+        place(x, bandpass(noise(m, rng), 1500, 0.8, sr) * decay(m, 0.01 if k == 2 else 0.003, sr), at, sr)
+    return x
+
+
+def ref_whistle(dur, sr=MSR):
+    """Свисток судьи: высокий тон с быстрой трелью горошины."""
+    n = n_of(dur, sr)
+    t = tt(dur, sr)
+    f = 2900 * (1 + 0.03 * np.sign(np.sin(2 * np.pi * 28 * t)))
+    return sine(f, sr) * env(n, 0.01, 0.05, 0.8, 0.03, sr)
+
+
+def render_stadium(song, rng, sr=MSR):
+    e8 = 60.0 / song["bpm"] / 2
+    bars = len(song["lead"])
+    length = e8 * 8 * bars
+    buf = np.zeros(n_of(length + 2.0, sr))
+    for nn, st, ln in parse(song["lead"]):
+        # «труба»: пошире прямоугольник, чуть приглушённый
+        v = lead_voice(nn, e8 * ln, 0.4, 0.26) + lead_voice(nn - 12, e8 * ln, 0.5, 0.08)
+        place(buf, lowpass(v, 3200, sr, 1), st * e8, sr)
+    for b, r in enumerate(song["roots"]):
+        t0 = b * 8 * e8
+        for q, off in enumerate([0, 7, 0, 7]):  # туба: ум-па
+            n = n_of(e8 * 1.1, sr)
+            tuba = 0.6 * tri(np.full(n, note(r - 24 + off)), sr) + 0.25 * square(np.full(n, note(r - 24 + off)), 0.5, sr)
+            place(buf, lowpass(tuba, 900, sr, 1) * env(n, 0.01, 0.15, 0.6, 0.04, sr) * 0.5, t0 + q * 2 * e8, sr)
+        for k in (1, 3, 5, 7):  # аккорд на слабые доли
+            n = n_of(e8 * 0.6, sr)
+            stab = sum(square(np.full(n, note(c - 12)), 0.25, sr) for c in MARCH_CHORD[r]) / 3
+            place(buf, lowpass(stab, 2200, sr, 1) * env(n, 0.004, 0.05, 0.4, 0.03, sr) * 0.12, t0 + k * e8, sr)
+        place(buf, kick(sr) * 0.75, t0, sr)
+        place(buf, kick(sr) * 0.55, t0 + 4 * e8, sr)
+        for k in (2, 6):
+            place(buf, snare(rng, sr) * 0.3, t0 + k * e8, sr)
+            place(buf, clap(rng, sr) * 0.45, t0 + k * e8, sr)
+        if b % 2 == 1:  # дробь малого барабана в конце каждого второго такта
+            for k in range(4):
+                place(buf, snare(rng, sr) * (0.12 + 0.04 * k), t0 + 6 * e8 + k * e8 / 2, sr)
+        for k in range(8):
+            place(buf, hat(rng, sr) * 0.05, t0 + k * e8 + e8 / 2, sr)
+    end = (bars - 1) * 8 * e8
+    place(buf, ref_whistle(e8 * 0.6) * 0.12, end + 5 * e8, sr)
+    place(buf, ref_whistle(e8 * 1.4) * 0.12, end + 6 * e8, sr)
+    n = n_of(length, sr)
+    out = buf[:n].copy()
+    out[: len(buf) - n] += buf[n:]
+    out = lowpass(out, 9000, sr, 1)
+    return norm(out - out.mean(), 0.7)
+
+
 MUSIC = {"music_kiosk": (KIOSK, "kiosk"), "music_flight": (FLIGHT, "flight"), "music_pyshki": (PYSHKI, "waltz"),
-         "music_chebureki": (CHEBUREKI, "train")}
+         "music_chebureki": (CHEBUREKI, "train"), "music_hotdogs": (HOTDOGS, "stadium")}
 LOOPS = {"gas", "squeeze", "wind"}
 
 
@@ -615,7 +682,14 @@ def main():
         if only and name not in only:
             continue
         rng = np.random.default_rng(2000 + i)
-        x = render_waltz(song) if style == "waltz" else render_train(song, rng) if style == "train" else render(song, style, rng)
+        if style == "waltz":
+            x = render_waltz(song)
+        elif style == "train":
+            x = render_train(song, rng)
+        elif style == "stadium":
+            x = render_stadium(song, rng)
+        else:
+            x = render(song, style, rng)
         tmp = os.path.join(out, name + ".tmp.wav")
         write_wav(tmp, x, MSR)
         subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", tmp, "-c:a", "libvorbis", "-q:a", "4",

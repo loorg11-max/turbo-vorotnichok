@@ -40,8 +40,10 @@ def load_data():
     for m in re.finditer(r'"(\w+)":\s*\{"name":\s*"([^"]+)",\s*"p":\s*([\d.]+),\s*"v":\s*([\d.]+),'
                          r'\s*"d":\s*([\d.]+),\s*"i":\s*(-?[\d.]+)(.*?)\}', src):
         h = re.search(r'"h":\s*(-?[\d.]+)', m[7])
+        j = re.search(r'"j":\s*(-?[\d.]+)', m[7])
         items[m[1]] = {"name": m[2], "p": float(m[3]), "v": float(m[4]), "d": float(m[5]),
-                       "i": float(m[6]), "base": '"base": true' in m[7], "h": float(h[1]) if h else 0.0}
+                       "i": float(m[6]), "base": '"base": true' in m[7], "h": float(h[1]) if h else 0.0,
+                       "j": float(j[1]) if j else 0.0}
     block = src[src.index("const RECIPES"):src.index("}", src.index("const RECIPES"))]
     recipes = {m[3]: (m[1], m[2]) for m in re.finditer(r'"(\w+)\+(\w+)":\s*"(\w+)"', block)}
     return items, recipes
@@ -70,6 +72,7 @@ def fly(items, tray, mode, seed=1):
     ang, hx, hy, t, top = a, 0.0, 0.0, 0.0, 0.0
     stage, store, inst, pumping = 0, 0.0, 0.0, False
     delay, fuel = items[tray[0]]["d"], items[tray[0]]["v"]
+    lit = -1  # какое блюдо уже загорелось (для рывка j)
     target = 0.785 if mode == "вбок" else 0.0
     while True:
         t += DT
@@ -89,6 +92,10 @@ def fly(items, tray, mode, seed=1):
             if delay > 0:
                 delay -= DT
             else:
+                # j: рывок вверх в тот миг, когда блюдо загорается (горчица)
+                if lit != stage:
+                    lit = stage
+                    vy += it["j"]
                 if squeeze:
                     thrust = it["p"] * 0.15
                     fuel -= DT * 0.15

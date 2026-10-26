@@ -38,13 +38,20 @@ static func rules(day: String) -> Dictionary:
 	pool.sort()  # порядок не зависит от словаря
 	var base: Array = []
 	var dishes: Array = []
-	for attempt in 50:
-		base = []
+	var best_n := -1
+	# чем больше ларьков, тем реже случайные 4 продукта дают 3 блюда: пробуем много раз и помним лучшую попытку
+	for attempt in 2000:
+		var b: Array = []
 		var left := pool.duplicate()
 		for i in PRODUCTS:
-			base.append(left.pop_at(rng.randi_range(0, left.size() - 1)))
-		dishes = closure(base)
-		if dishes.size() >= MIN_DISHES and dishes.filter(_two_kinds).size() >= MIN_PAIRS:
+			b.append(left.pop_at(rng.randi_range(0, left.size() - 1)))
+		var d := closure(b)
+		var n := mini(d.size(), MIN_DISHES) * 10 + mini(d.filter(_two_kinds).size(), MIN_PAIRS)
+		if n > best_n:
+			best_n = n
+			base = b
+			dishes = d
+		if n >= MIN_DISHES * 10 + MIN_PAIRS:
 			break
 	var goals := GOALS.keys()
 	return {"day": day, "goal": goals[rng.randi_range(0, goals.size() - 1)], "base": base, "dishes": dishes,

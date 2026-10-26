@@ -89,6 +89,23 @@ fi
 # корзина фритюра из 25 в 28 точках превращается в кашу из сетки: масло рисуем по точкам
 [ -f raw/25_chebureki_food.png ] && python3 -I $T/draw_oil.py $OUT/food_oil.png --godot gpt/food_oil.png
 
+# Хот-доги у стадиона (29–32). Включаются сами, когда есть все картинки. Цвета --extra подобрать по факту.
+[ -f raw/29_hotdogs_stall.png ] && px raw/29_hotdogs_stall.png $OUT/stall_hotdogs.png --size 190x0 --key --crop --godot gpt/stall_hotdogs.png
+if [ -f raw/30_zhora.png ]; then
+  python3 -I $T/split_sheet.py raw/30_zhora.png split/zhora --grid 3x1 --main --names happy,shock,grumpy
+  for n in happy shock grumpy; do px split/zhora/$n.png $OUT/zhora_$n.png --size 0x64 --key --crop --godot gpt/zhora_$n.png; done
+  python3 -I $T/small_sprite.py raw/30_zhora.png $OUT --cols 3 --names happy,shock,grumpy --height 30 --prefix zhora_small --godot gpt
+fi
+if [ -f raw/31_hotdogs_food.png ]; then
+  python3 -I $T/split_sheet.py raw/31_hotdogs_food.png split/hfood --names sausage,bun,mustard,ketchup,pickle,fries
+fi
+if [ -f raw/32_hotdogs_dishes.png ]; then
+  python3 -I $T/split_sheet.py raw/32_hotdogs_dishes.png split/hfood --names hotdog,mdog,kdog,kfries,zakuska,lavashdog,sdough,cfries,final
+fi
+if [ -d split/hfood ]; then
+  for f in split/hfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
+fi
+
 # Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.
 # Книга из 10d в маленьком размере не читается, на кнопке книги осталась шаурма.
 if [ -f raw/10d_ui_icons.png ]; then

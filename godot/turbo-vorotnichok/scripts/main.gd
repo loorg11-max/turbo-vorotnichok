@@ -270,7 +270,7 @@ func _check_progress(quiet := false) -> void:
 	for m in [[1, "dish1"], [6, "dish6"]]:
 		if known.size() >= m[0]:
 			_award(m[1], quiet)
-	for m in [["tigran", "dish_all"], ["pyshki", "dish_all_pyshki"], ["chebureki", "dish_all_chebureki"]]:
+	for m in [["tigran", "dish_all"], ["pyshki", "dish_all_pyshki"], ["chebureki", "dish_all_chebureki"], ["hotdogs", "dish_all_hotdogs"]]:
 		if GameData.recipes_of(m[0]).all(func(id): return known.has(id)):
 			_award(m[1], quiet)
 	if known.any(GameData.mixed_origin):
@@ -1182,7 +1182,7 @@ func _start_launch() -> void:
 	eat_t = 1.6
 	f = {"t": 0.0, "stage": 0, "delay": 0.0, "fuel": 0.0, "store": 0.0, "inst": 0.0, "max": 0.0, "landed": 0.0, "won": false, "aim": 0.0,
 		"prev_best": best, "pigeons": 0, "fulls": 0, "rec": false, "air": 0.0, "booms": 0, "full": false, "boosting": false, "gurgled": false, "tilt": 0.0, "x0": hx,
-		"thermal": false, "pyshki": 0, "sweet": 0.0}
+		"thermal": false, "pyshki": 0, "sweet": 0.0, "lit": -1}
 	Engine.time_scale = 1.0
 	slow_t = 0.0
 	hero.play("eat")
@@ -1268,6 +1268,8 @@ func _finish() -> void:
 		_award("light")
 	if dist >= 1500 and tray.any(func(id): return GameData.ITEMS[id].get("h", 0.0) > 0.0):
 		_award("rail")
+	if f.max >= 2000.0 and tray.any(func(id): return GameData.ITEMS[id].get("j", 0.0) > 0.0):
+		_award("goal")
 	if f.max >= 600.0 and tray.all(func(id): return GameData.kiosk_of(id) == "pyshki"):
 		_award("sweet")
 	# талоны за высоту и выполненные задания
@@ -1490,6 +1492,16 @@ func _update_flight(dt: float) -> void:
 		if f.delay > 0.0:
 			f.delay -= dt
 		else:
+			# j: блюдо загорелось и подбрасывает вверх (горчица)
+			if f.lit != f.stage:
+				f.lit = f.stage
+				if it.get("j", 0.0) > 0.0:
+					vy += it.j
+					snd.play("boost", 1.35)
+					_shake(2.5)
+					_puff(10, 22.0)
+					if f.stage > 0:  # у первого блюда своё сообщение о старте
+						_message("Горчица! Хоп!")
 			if squeeze:
 				thrust = it.p * 0.15
 				f.fuel -= dt * 0.15
@@ -1815,6 +1827,43 @@ func _shots() -> void:
 			print("поднос %s: высота %d м, вбок %d м" % [t, int(f.max), int(hx - f.x0)])
 		await get_tree().create_timer(0.3).timeout
 		shot.call("fire_result")
+		kiosk = "tigran"
+	# Хот-доги: снимаются, только когда их картинки уже в проекте
+	if GameData.kiosk_ready("hotdogs"):
+		pc.set_paused(false)
+		best = 1700.0
+		known += ["cheburek", "hotdog"]
+		kiosk = "chebureki"
+		_to_kiosk()
+		switch_btn.pressed.emit()
+		await get_tree().create_timer(2.4).timeout
+		shot.call("walk4")
+		while state == State.WALK:
+			await get_tree().process_frame
+		_add_bowl("hotdog")
+		_add_bowl("mustard")
+		await get_tree().create_timer(0.3).timeout
+		shot.call("hotdogs")
+		book.open(known, GameData.open_kiosks(best), "hotdogs")
+		await get_tree().create_timer(0.2).timeout
+		shot.call("book4")
+		await _esc()
+		# горчица подбрасывает: тот же поднос с ней и без неё, снимок в миг рывка второго блюда
+		for t in [["hotdog", "hotdog"], ["mdog", "mdog"]]:
+			tray = t
+			_start_launch()
+			await get_tree().create_timer(1.9).timeout
+			f.aim = 0.6
+			aim_t = 1e9
+			_launch()
+			var jolt_shot := false
+			while state != State.RESULT:
+				await get_tree().process_frame
+				if t[0] == "mdog" and not jolt_shot and f.lit == 1:
+					jolt_shot = true
+					await get_tree().create_timer(0.15).timeout
+					shot.call("mustard_jolt")
+			print("поднос %s: высота %d м, вбок %d м" % [t, int(f.max), int(hx - f.x0)])
 		kiosk = "tigran"
 	# испытание дня: условия на сегодня, полёт и итог
 	pc.set_paused(false)

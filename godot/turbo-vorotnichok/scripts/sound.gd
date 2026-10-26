@@ -18,6 +18,9 @@ const GAS_PITCH := {
 	"dough": 1.0, "mince": 0.9, "oil": 1.4, "cheese": 0.95, "adjika": 1.35, "kvass": 1.1,
 	"cheburek": 0.85, "chcheese": 0.9, "belyash": 1.2, "fire": 1.3, "firekvass": 1.55, "okroshka": 0.95,
 	"donut": 1.15, "fshawarma": 0.75, "station": 0.6,
+	"sausage": 0.95, "bun": 1.05, "mustard": 1.45, "ketchup": 1.1, "pickle": 1.25, "fries": 1.15,
+	"hotdog": 0.85, "mdog": 1.0, "kdog": 0.85, "kfries": 1.05, "zakuska": 1.5, "lavashdog": 0.9,
+	"sdough": 0.9, "cfries": 1.0, "final": 0.58,
 }
 
 var streams := {}
@@ -47,7 +50,7 @@ func _ready() -> void:
 		st.loop_begin = 0
 		st.loop_end = int(st.get_length() * st.mix_rate)
 		loops[n] = {"p": _player("SFX", st), "v": 0.0, "to": 0.0, "db": 0.0}
-	for n in ["kiosk", "flight", "pyshki", "chebureki"]:
+	for n in ["kiosk", "flight", "pyshki", "chebureki", "hotdogs"]:
 		if not ResourceLoader.exists("res://sounds/music_%s.ogg" % n):
 			continue
 		var st: AudioStreamOggVorbis = load("res://sounds/music_%s.ogg" % n)
