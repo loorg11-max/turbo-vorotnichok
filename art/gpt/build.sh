@@ -113,7 +113,7 @@ if [ -f raw/34_space_objects.png ]; then
   px split/space/sputnik.png $OUT/space_sputnik.png --size 44x0 --key --crop --godot gpt/space_sputnik.png
   px split/space/cosmonaut.png $OUT/space_cosmonaut.png --size 0x44 --key --crop --godot gpt/space_cosmonaut.png
   px split/space/station.png $OUT/space_station.png --size 120x0 --key --crop --godot gpt/space_station.png
-  px split/space/dog.png $OUT/space_dog.png --size 0x44 --key --crop --godot gpt/space_dog.png
+  px split/space/dog.png $OUT/space_dog.png --size 0x50 --key --crop --godot gpt/space_dog.png
 fi
 
 # Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.

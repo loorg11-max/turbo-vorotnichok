@@ -1,6 +1,6 @@
 # Хот-доги у стадиона: четвёртый ларёк (версия 0.6)
 
-Ответы loorg 2026-10-26 (вопросы внизу): 1-а, 2-а, 3-а, 4-а. Всё ниже уже в коде (data.gd, main.gd, awards.gd, sound.gd, музыка `music_hotdogs.ogg`). Ларёк появится сам, как только в `art/gpt/` лягут картинки: `stall_hotdogs.png`, `zhora_*.png`, `zhora_small_*.png` и `food_<id>.png` (промпты 29–32 в `art/gpt/prompts-hotdogs.md`, блок в `art/gpt/build.sh` уже есть). Проверено прогоном снимков на временных перекрашенных картинках в копии проекта.
+Ответы loorg 2026-10-26 (вопросы внизу): 1-а, 2-а, 3-а, 4-а. Всё ниже уже в коде (data.gd, main.gd, awards.gd, sound.gd, музыка `music_hotdogs.ogg`). С 0.6c ларёк в игре целиком: loorg прислал картинки 29–32 (2026-10-27). Файлы: `stall_hotdogs.png`, `zhora_*.png`, `zhora_small_*.png` и `food_<id>.png` (промпты 29–32 в `art/gpt/prompts-hotdogs.md`, блок в `art/gpt/build.sh` уже есть). Проверено прогоном снимков на временных перекрашенных картинках в копии проекта.
 
 ## Коротко
 

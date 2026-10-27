@@ -62,7 +62,7 @@ func _draw() -> void:
 func _draw_marks() -> void:
 	var c := cam_center.round()
 	var lo := (-(c.y + 180.0)) / PX
-	var hi := (-(c.y - 180.0)) / PX
+	var hi := (-(c.y - 180.0 + 18.0)) / PX  # верхнюю полоску экрана занимает цель, там отметок нет
 	var x := c.x + 280.0  # левее шкалы «Пузо»
 	var m := maxf(50.0, ceilf(lo / 50.0) * 50.0)
 	while m <= hi:

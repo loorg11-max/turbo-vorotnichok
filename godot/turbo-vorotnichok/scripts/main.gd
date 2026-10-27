@@ -1925,6 +1925,7 @@ func _shots() -> void:
 	var dusk_shot := false
 	var space_shot := false
 	var top_shot := false
+	var meet_shot := false
 	while state != State.RESULT:
 		await get_tree().process_frame
 		if ang > 0.05:
@@ -1942,6 +1943,9 @@ func _shots() -> void:
 			space_shot = true
 			await get_tree().create_timer(0.3).timeout
 			shot.call("space")
+		if not meet_shot and f.space and msg_t > 1.5 and lbl.msg.text.contains("«"):
+			meet_shot = true
+			shot.call("space_meet")
 		if not top_shot and f.space and vy < 0.0:
 			top_shot = true
 			shot.call("space_top")
