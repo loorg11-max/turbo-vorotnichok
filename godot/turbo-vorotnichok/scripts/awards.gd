@@ -39,6 +39,9 @@ const LIST := [
 	# Хот-доги у стадиона
 	["dish_all_hotdogs", "Всё меню Жоры", "Открыть все 9 рецептов Хот-догов.", "hotdogs"],
 	["goal", "Гол в облака", "Подняться на 2000 м с горчицей на подносе.", "hotdogs"],
+	# За границей: видны, когда в игре есть картинки страны (abroad.gd)
+	["paris", "Бонжур, обед!", "Приземлиться в Париже: улететь влево за 3000 м.", "paris"],
+	["china", "Нихао, обед!", "Приземлиться в Китае: улететь вправо за 3000 м.", "china"],
 ]
 const TOAST_TIME := 2.2
 
@@ -90,7 +93,7 @@ static func ids() -> Array:
 
 ## Достижения, которые видны в этой сборке: без ларьков, которых ещё нет.
 static func visible_list() -> Array:
-	return LIST.filter(func(a): return a.size() < 4 or GameData.kiosk_ready(a[3]))
+	return LIST.filter(func(a): return a.size() < 4 or (Abroad.ready(a[3]) if Abroad.COUNTRIES.has(a[3]) else GameData.kiosk_ready(a[3])))
 
 
 static func shown_ids() -> Array:

@@ -1,6 +1,7 @@
 extends Node2D
 ## Ближний мир: офисная башня, ларьки (фургон Тиграна, дальше Пышечная и Чебуречная), тротуар (графика из GPT, art/gpt/)
 ## Облака и всё, что летает, в sky.gd. 1 метр = PX пикселей, земля на y = 0.
+## Если есть картинки заграницы (abroad.gd), своя улица кончается морем, за ним граница и чужая улица.
 
 const PX := 4.0
 const TILE_REPEAT := 60
@@ -13,7 +14,15 @@ const PYSHKI_X := 264.0
 const PYSHKI_COUNTER := Vector2(44, 84)
 const PYSHKI_SAYS := Vector2(92, -3)
 
+const FAR := 8000.0  # метры: докуда тянутся улицы
+const WALK_Y := -6  # верх полосы тротуара
+const SEA_Y := -2  # горизонт моря чуть выше ног Геннадия
+const DEEP := Color("#0a1a3b")  # глубина под полосой моря
+
 var sellers := {}  # ларёк → {"sprite", "counter", "says", "seller"}
+var sea_tex: Texture2D  # море (GPT 35): main.gd прячет в нём ноги Геннадия, когда тот плюхнулся
+var under: Array = []  # [от, до (точки), цвет] заливка под полосами, рисуется в _draw
+var seas: Array = []  # [от, до] полос моря в точках
 
 
 func _ready() -> void:
@@ -22,8 +31,49 @@ func _ready() -> void:
 	for k in GameData.KIOSKS:
 		if GameData.kiosk_ready(k):
 			_stall(k)
-	var walk := tiled("res://art/gpt/sidewalk.png", self)
-	walk.position.y = -6
+	var home := [-FAR, FAR]
+	var isles: Array = []
+	for c in Abroad.countries():
+		var cd: Dictionary = Abroad.COUNTRIES[c]
+		var b: float = cd.border
+		var coast: float = b - cd.dir * Abroad.SEA
+		if cd.dir < 0.0:
+			home[0] = coast
+		else:
+			home[1] = coast
+		sea_tex = load("res://art/gpt/sea.png")
+		_band(sea_tex, minf(b, coast), maxf(b, coast), SEA_Y, DEEP)
+		seas.append([roundf(minf(b, coast) * PX), roundf(maxf(b, coast) * PX)])
+		_band(load("res://art/gpt/%s_street.png" % c), minf(b, b + cd.dir * FAR), maxf(b, b + cd.dir * FAR), WALK_Y, Pal.DARK2)
+		isles.append(b)
+	_band(load("res://art/gpt/sidewalk.png"), home[0], home[1], WALK_Y, Pal.DARK2)
+	# островок с пограничным столбом стоит в воде на самой границе
+	for b in isles:
+		var isle := _sprite("res://art/gpt/border.png")
+		var sz := isle.texture.get_size()
+		isle.position = Vector2(b * PX - sz.x / 2.0, 10.0 - sz.y).round()
+
+
+## Какой кусок картинки моря лежит под прямоугольником r (точки мира): чтобы нарисовать его поверх Геннадия.
+func sea_region(r: Rect2) -> Rect2:
+	for s in seas:
+		if r.get_center().x >= s[0] and r.get_center().x <= s[1]:
+			return Rect2(r.position - Vector2(s[0], SEA_Y), r.size)
+	return Rect2()
+
+
+## Полоса земли из повторяющейся картинки от a до b (метры), под ней заливка цветом fill.
+func _band(tex: Texture2D, a: float, b: float, y: int, fill: Color) -> void:
+	var s := Sprite2D.new()
+	s.texture = tex
+	s.centered = false
+	s.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	s.region_enabled = true
+	s.region_rect = Rect2(0, 0, roundf((b - a) * PX), tex.get_height())
+	s.position = Vector2(roundf(a * PX), y)
+	add_child(s)
+	under.append([roundf(a * PX), roundf(b * PX), y + tex.get_height() - 2, fill])
+	queue_redraw()
 
 
 func _stall(k: String) -> void:
@@ -90,5 +140,6 @@ func _rand(i: float) -> float:
 
 
 func _draw() -> void:
-	# под тротуаром асфальт, чтобы снизу не было дыры
-	draw_rect(Rect2(-4000, 70, 30000, 400), Pal.DARK2)
+	# под полосами асфальт (под морем глубина), чтобы снизу не было дыры
+	for u in under:
+		draw_rect(Rect2(u[0], u[2], u[1] - u[0], 400), u[3])

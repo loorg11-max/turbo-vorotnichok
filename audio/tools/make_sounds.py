@@ -337,6 +337,48 @@ def s_space(rng):
     return norm(lowpass(buf, 6000), 0.6)
 
 
+def s_paris(rng):
+    # Париж: аккордеон-мюзет, два чуть расстроенных голоса с дрожанием, фраза вальсом
+    phrase = [(3, 0.18), (7, 0.18), (10, 0.18), (15, 0.36), (14, 0.18), (12, 0.18), (10, 0.7)]
+    buf = np.zeros(n_of(sum(d for _, d in phrase) + 0.3))
+    at = 0.0
+    for nn, d in phrase:
+        m = n_of(d + 0.05)
+        f = np.full(m, note(nn))
+        trem = 1 + 0.18 * np.sin(2 * np.pi * 6.5 * tt(d + 0.05))
+        x = (square(f, 0.5) + square(f * 1.006, 0.5) + 0.5 * tri(f / 2)) * trem
+        place(buf, x * env(m, 0.02, 0.1, 0.7, 0.06), at)
+        at += d
+    return norm(lowpass(buf, 3200), 0.55)
+
+
+def s_china(rng):
+    # Китай: щипковая цитра по пентатонике, в конце гонг
+    buf = np.zeros(n_of(2.0))
+    for k, nn in enumerate([12, 14, 16, 19, 21, 24, 21, 24]):
+        m = n_of(0.45)
+        f = note(nn) * (1 + 0.03 * np.exp(-tt(0.45) / 0.02))  # щипок: высота чуть съезжает вниз
+        x = (sine(f) + 0.5 * tri(f) + 0.2 * sine(f * 3)) * decay(m, 0.12)
+        place(buf, x, k * 0.09 + (0.12 if k == 7 else 0.0))
+    m = n_of(1.3)
+    gong = sum(a * sine(np.full(m, note(-12) * r)) for r, a in ((1.0, 1.0), (1.48, 0.5), (2.13, 0.35), (2.89, 0.2)))
+    place(buf, gong * env(m, 0.01, 0.2, 0.4, 1.0) * 0.6, 0.7)
+    return norm(buf, 0.6)
+
+
+def s_splash(rng):
+    # плюх в море: шумный всплеск с падающим фильтром и пузырьки
+    buf = np.zeros(n_of(1.0))
+    m = n_of(0.5)
+    hit = lowpass(noise(m, rng), sweep(5000, 600, m)) * env(m, 0.003, 0.12, 0.2, 0.3)
+    place(buf, hit + 0.6 * sine(sweep(90, 45, m)) * decay(m, 0.06), 0.0)
+    for k in range(7):
+        n = n_of(0.06)
+        f0 = 500 + rng.random() * 700
+        place(buf, sine(sweep(f0, f0 * 1.8, n)) * decay(n, 0.02) * 0.35, 0.2 + k * 0.08 + rng.random() * 0.04)
+    return norm(buf, 0.75)
+
+
 def s_land(rng):
     buf = np.zeros(n_of(0.45))
     for at, v in ((0.0, 1.0), (0.16, 0.35)):
@@ -382,6 +424,7 @@ SOUNDS = {
     "launch": s_launch, "gas": s_gas, "squeeze": s_squeeze, "boost": s_boost,
     "boom": s_boom, "record": s_record, "clouds": s_clouds, "land": s_land,
     "award": s_award, "medal": s_medal, "gurgle": s_gurgle, "wind": s_wind, "space": s_space,
+    "paris": s_paris, "china": s_china, "splash": s_splash,
 }
 
 

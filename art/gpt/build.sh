@@ -116,6 +116,13 @@ if [ -f raw/34_space_objects.png ]; then
   px split/space/dog.png $OUT/space_dog.png --size 0x50 --key --crop --godot gpt/space_dog.png
 fi
 
+# За границей (35–40): море, островок с пограничным столбом, Париж и Китай. Страна включается, когда есть её картинки и 35–36.
+if [ -f raw/35_sea.png ]; then px raw/35_sea.png $OUT/sea.png --size 640x0 --key --crop --godot gpt/sea.png; fi
+if [ -f raw/36_border.png ]; then px raw/36_border.png $OUT/border.png --size 150x0 --key --crop --godot gpt/border.png; fi
+for f in raw/3[79]_*_far.png raw/38_*_street.png raw/40_*_street.png; do
+  if [ -f "$f" ]; then n=$(basename "$f" .png); n=${n#*_}; px "$f" $OUT/$n.png --size 640x0 --key --crop --godot gpt/$n.png; fi
+done
+
 # Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.
 # Книга из 10d в маленьком размере не читается, на кнопке книги осталась шаурма.
 if [ -f raw/10d_ui_icons.png ]; then

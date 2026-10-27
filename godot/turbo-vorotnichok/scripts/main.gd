@@ -68,6 +68,7 @@ const SPACE_Y := SpaceScript.SPACE_Y
 const SPACE_LINES := ["Мама, я в космосе!", "Хьюстон, у нас шаурма!", "Тут даже голубей нет", "Обед затянулся...",
 	"Начальник не поверит", "Земля в иллюминаторе!"]
 const SPACE_SAY := 3.2
+const SINK := 2.5  # плюхнулся в море: насколько метров Геннадий уходит в воду
 const OFFICE_M := 130.0  # крыша офиса: башня 520 точек
 const TUT_FLIGHTS := 3
 ## «Сжать булки»: газ копится в запас (быстрее у сильных блюд), отпустил — рывок, пока запас не кончится.
@@ -80,6 +81,7 @@ const PYSHKA_THRUST := 22.0
 var world: Node2D
 var far_city: Node2D
 var bridge: Node2D
+var far_abroad := {}  # страна → дальний город за границей (abroad.gd), тот же параллакс, что у far_city
 var seller: TextureRect
 var kiosk := "tigran"
 var mix_icon: TextureRect
@@ -108,6 +110,8 @@ var awards: Control
 var tut: Control
 var book: Control
 var book_btn: Button
+var postcards: Control  # альбом «Где побывал Геннадий» (postcards.gd)
+var cards_btn: Button
 var talons_btn: Button
 var shop: Control
 var awards_btn: Button
@@ -319,11 +323,17 @@ func _build_world() -> void:
 	far_city = Node2D.new()
 	add_child(far_city)
 	var fc := WorldScript.tiled("res://art/gpt/far_city.png", far_city)
-	fc.position.y = -fc.texture.get_height() - 40
+	fc.position = Vector2(-fc.texture.get_width() * 30, -fc.texture.get_height() - 40)
+	for c in Abroad.countries():
+		var n := Node2D.new()
+		add_child(n)
+		var t := WorldScript.tiled("res://art/gpt/%s_far.png" % c, n)
+		t.position = Vector2(-t.texture.get_width() * 30, -t.texture.get_height() - 40)
+		far_abroad[c] = n
 	bridge = Node2D.new()
 	add_child(bridge)
 	var br := WorldScript.tiled("res://art/gpt/bridge.png", bridge)
-	br.position.y = -br.texture.get_height() + 6
+	br.position = Vector2(-br.texture.get_width() * 30, -br.texture.get_height() + 6)
 	world = Node2D.new()
 	world.set_script(preload("res://scripts/world.gd"))
 	add_child(world)
@@ -433,8 +443,11 @@ func _build_ui() -> void:
 	awards.set_script(preload("res://scripts/awards.gd"))
 	awards.got = _saved_awards
 	ui.add_child(awards)
+	postcards = Control.new()
+	postcards.set_script(preload("res://scripts/postcards.gd"))
+	ui.add_child(postcards)
 	# окно поверх ларька: геймпад ходит только по нему, после закрытия снова по ларьку
-	for o in [book, shop, awards.screen]:
+	for o in [book, shop, awards.screen, postcards]:
 		o.visibility_changed.connect(_overlay_changed.bind(o))
 
 
@@ -534,6 +547,9 @@ func _build_kiosk() -> void:
 	lbl.daily = Button.new()
 	lbl.daily.pressed.connect(func(): _set_daily(not daily_on))
 	foot.add_child(lbl.daily)
+	cards_btn = Button.new()
+	cards_btn.pressed.connect(func(): postcards.open(awards.got))
+	foot.add_child(cards_btn)
 	var sp2 := Control.new()
 	sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(sp2)
@@ -706,7 +722,7 @@ func refresh_controls() -> void:
 	if state == State.LAUNCH or (state == State.FLIGHT and f.landed == 0.0):
 		lbl.keys.text = _keys_text()
 	lbl.r_hint.text = _keys_text() if state == State.RESULT else ""
-	for o in [book, shop]:
+	for o in [book, shop, postcards]:
 		if o.visible:
 			o.hint_lbl.text = Controls.close_hint()
 	if awards.screen.visible:
@@ -716,7 +732,7 @@ func refresh_controls() -> void:
 
 
 func _overlay_changed(o: Control) -> void:
-	var any: bool = book.visible or shop.visible or awards.screen.visible
+	var any: bool = book.visible or shop.visible or awards.screen.visible or postcards.visible
 	for b in kiosk_panel.find_children("*", "BaseButton", true, false):
 		b.focus_mode = Control.FOCUS_NONE if any else Control.FOCUS_ALL
 	if o.visible and o == awards.screen:
@@ -728,7 +744,7 @@ func _overlay_changed(o: Control) -> void:
 func _pad_focus() -> void:
 	if not Controls.pad or get_tree().paused:
 		return
-	for o in [shop, book]:
+	for o in [shop, book, postcards]:
 		if o.visible:
 			var bs: Array = o.find_children("*", "Button", true, false).filter(func(b): return b.is_visible_in_tree() and not b.disabled)
 			if bs.size():
@@ -793,6 +809,7 @@ func _render_counts() -> void:
 	awards_btn.text = "Достижения %d/%d" % [awards.got.filter(func(id): return shown.has(id)).size(), shown.size()]
 	awards_btn.icon = awards.cup(true)
 	talons_btn.text = "Талоны %d" % talons
+	cards_btn.text = "Открытки %d/%d" % [Postcards.got(awards.got).size(), Postcards.list().size()]
 
 
 ## Окно закрыли крестиком: выходим так же, через quit_game (auto_accept_quit выключен в _ready).
@@ -821,6 +838,9 @@ func close_overlay() -> bool:
 		return true
 	if shop.visible:
 		shop.visible = false
+		return true
+	if postcards.visible:
+		postcards.visible = false
 		return true
 	return false
 
@@ -1193,7 +1213,8 @@ func _start_launch() -> void:
 	f = {"t": 0.0, "stage": 0, "delay": 0.0, "fuel": 0.0, "store": 0.0, "inst": 0.0, "max": 0.0, "landed": 0.0, "won": false, "aim": 0.0,
 		"prev_best": best, "pigeons": 0, "fulls": 0, "rec": false, "air": 0.0, "booms": 0, "full": false, "boosting": false, "gurgled": false, "tilt": 0.0, "x0": hx,
 		"thermal": false, "pyshki": 0, "sweet": 0.0, "lit": -1,
-		"space": false, "space_t": 0.0, "space_said": []}
+		"space": false, "space_t": 0.0, "space_said": [],
+		"abroad": "", "sea_seen": false, "land_at": "home", "local": false, "cards": Postcards.got(awards.got)}
 	Engine.time_scale = 1.0
 	slow_t = 0.0
 	hero.play("eat")
@@ -1265,7 +1286,7 @@ func _finish() -> void:
 	hero_bubble.hide_now()
 	seller_bubble.hide_now()
 	snd.stop_loops()
-	var dist := int(hx - f.x0)
+	var dist := int(absf(hx - f.x0))
 	var is_best: bool = f.max > best
 	var was_open := GameData.open_kiosks(best)
 	if is_best:
@@ -1294,7 +1315,7 @@ func _finish() -> void:
 	var earned := int(f.max / Perks.TALON_M)
 	talons += earned
 	var done_lines: Array = []
-	var r := {"max": f.max, "dist": hx - f.x0, "air": f.air, "pigeons": f.pigeons, "full": f.fulls, "booms": f.booms,
+	var r := {"max": f.max, "dist": float(dist), "air": f.air, "pigeons": f.pigeons, "full": f.fulls, "booms": f.booms,
 		"tray": tray.size()}
 	for t in tasks.duplicate():
 		if not Perks.counted(t.i) and Perks.check(t.i, r):
@@ -1306,7 +1327,8 @@ func _finish() -> void:
 	if done_lines.size():
 		lbl.r_talons.text += "\n" + "\n".join(done_lines)
 	yandex.between_flights(stats.flights)
-	lbl.r_title.text = "СЛЕТАЛ В КОСМОС!" if f.space else "ОБЛАКА ПОКОРЕНЫ!" if f.won else ("НОВЫЙ РЕКОРД!" if is_best else "ПРИЗЕМЛИЛСЯ")
+	var cd: Dictionary = Abroad.COUNTRIES.get(f.land_at, {})
+	lbl.r_title.text = cd.title if not cd.is_empty() else "ПЛЮХ В МОРЕ!" if f.land_at == "sea" else "СЛЕТАЛ В КОСМОС!" if f.space else "ОБЛАКА ПОКОРЕНЫ!" if f.won else ("НОВЫЙ РЕКОРД!" if is_best else "ПРИЗЕМЛИЛСЯ")
 	var medal: Array = []
 	for m in MEDALS:
 		if f.max >= m[0]:
@@ -1328,6 +1350,13 @@ func _finish() -> void:
 	var news_lines: Array = [] if news.is_empty() else ["Открылась %s! Она дальше по улице." % GameData.KIOSKS[news[0]].name]
 	if f.space:
 		news_lines.push_front("Геннадий слетал в космос и успел вернуться к концу обеда.")
+	if not cd.is_empty():
+		news_lines.push_front("Обеденный перерыв продлён: Геннадий %s." % cd.in)
+	elif f.land_at == "sea":
+		news_lines.push_front("Геннадий долетел до моря и искупался в обеденный перерыв.")
+	var cards: Array = Postcards.got(awards.got)
+	for c in cards.filter(func(c): return not f.cards.has(c)):
+		news_lines.append("Новая открытка в альбоме: «%s»" % Postcards.caption(c))
 	if daily_line != "":
 		news_lines.push_front(daily_line)
 	lbl.r_news.text = "\n".join(news_lines)
@@ -1390,6 +1419,13 @@ func _process(dt: float) -> void:
 	# герой, камера, небо, параллакс
 	hero.position = Vector2(hx * PX, -hy * PX)
 	hero.rotation = (ang - 0.5) if hero.animation == "fly" else 0.0
+	# плюхнулся в море: ноги Геннадия под водой, поверх рисуется кусок той же полосы моря
+	if f.get("land_at", "") == "sea" and f.landed > 0.0 and state in [State.FLIGHT, State.RESULT]:
+		fx.cover = Rect2(hero.position.x - 20.0, 0.0, 40.0, 24.0)
+		fx.cover_src = world.sea_region(fx.cover)
+		fx.sea_tex = world.sea_tex
+	else:
+		fx.cover = Rect2()
 	var target := Vector2(hx * PX + (60.0 if state in [State.LAUNCH, State.FLIGHT, State.RESULT] else 0.0), min(-hy * PX, -140.0))
 	cam.position = cam.position.lerp(target, min(1.0, dt * 6.0)) if state == State.FLIGHT else target
 	if shake > 0.05:
@@ -1405,6 +1441,14 @@ func _process(dt: float) -> void:
 	hero_bubble.anchor = hero.position + Vector2(-2, (-40.0 if hero.animation == "land" else -58.0) + 5.0)
 	far_city.position = Vector2(cam.position.x * 0.7, (cam.position.y + 140.0) * 0.7)
 	bridge.position = Vector2(cam.position.x * 0.35, (cam.position.y + 140.0) * 0.35)
+	# над морем свой город и мост гаснут, у границы проступает чужой город
+	var cx := cam.position.x / PX
+	far_city.modulate.a = Abroad.home_alpha(cx)
+	bridge.modulate.a = far_city.modulate.a
+	for c in far_abroad:
+		far_abroad[c].position = far_city.position
+		far_abroad[c].modulate.a = Abroad.foreign_alpha(c, cx)
+		far_abroad[c].visible = far_abroad[c].modulate.a > 0.0
 	var k: float = clamp(hy / 1100.0, 0.0, 1.0)
 	sky.modulate = Color(0.72, 0.74, 0.92).lerp(Color.WHITE, k)
 	space.h = hy
@@ -1430,7 +1474,7 @@ func _tutorial() -> void:
 
 
 func _tut_want() -> Array:
-	if book.visible or awards.screen.visible:
+	if book.visible or awards.screen.visible or postcards.visible:
 		return []
 	# про новый ларёк скажем и опытному игроку
 	if state == State.KIOSK and switch_btn.visible and not tut.has("kiosk2"):
@@ -1604,7 +1648,7 @@ func _update_flight(dt: float) -> void:
 	hx += vx * dt
 	hy += vy * dt
 	f.max = max(f.max, hy)
-	_check_height(f.max, false, hx - f.x0)
+	_check_height(f.max, false, absf(hx - f.x0))
 	if f.landed == 0.0 and sky_layer.hit(hx, hy):
 		# сбил голубя: немного теряет скорость
 		vx *= PIGEON_LOSS
@@ -1660,27 +1704,57 @@ func _update_flight(dt: float) -> void:
 				var line: String = "Ого, космос!" if f.space_said.is_empty() else left.pick_random()
 				f.space_said.append(line)
 				_say(line, 2.2)
+	# за границей (abroad.gd): над морем Геннадий удивляется, над границей надпись страны
+	if f.landed == 0.0 and hy > 0.0:
+		var at := Abroad.where(hx)
+		if at == "sea" and not f.sea_seen:
+			f.sea_seen = true
+			_say("Ого, море!", 1.6)
+		elif Abroad.COUNTRIES.has(at) and f.abroad == "":
+			f.abroad = at
+			_message(Abroad.COUNTRIES[at].msg)
+			snd.play(at)
+			_shake(1.5)
 	if hy <= 0.0 and f.t > 0.4:
+		var cd: Dictionary = Abroad.COUNTRIES.get(f.land_at, {})
 		if f.landed == 0.0:
 			f.air = f.t
-			snd.play("land", clamp(1.2 + vy * 0.01, 0.8, 1.2))
+			f.land_at = Abroad.where(hx)
+			cd = Abroad.COUNTRIES.get(f.land_at, {})
 			snd.stop_loops()
-			hero.scale = Vector2(1.3, 0.75)
-			_shake(clamp(-vy * 0.15, 1.0, 5.0))
-			_say("Земля, я дома!" if f.space else "Облака мои!" if f.won else ("Рекорд!" if f.rec else LANDING_LINES.pick_random()), 0.9)
-		hy = 0.0
+			if f.land_at == "sea":
+				snd.play("splash")
+				fx.splash(Vector2(hx * PX, 0.0))
+				_message("Плюх!")
+				_shake(2.0)
+				_say("Обед с купанием!", 1.4)
+			else:
+				snd.play("land", clamp(1.2 + vy * 0.01, 0.8, 1.2))
+				hero.scale = Vector2(1.3, 0.75)
+				_shake(clamp(-vy * 0.15, 1.0, 5.0))
+				if not cd.is_empty():
+					_say(cd.hello, 1.6)
+					_award(f.land_at)
+				else:
+					_say("Земля, я дома!" if f.space else "Облака мои!" if f.won else ("Рекорд!" if f.rec else LANDING_LINES.pick_random()), 0.9)
+		hy = -SINK if f.land_at == "sea" else 0.0
 		vx *= 0.3
 		vy = 0.0
 		ang = lerp(ang, 0.0, 0.3)
 		spin = 0.0
 		f.landed += dt
-		if f.landed > 0.9:
+		# за границей местный отвечает Геннадию, потом итоги
+		if not cd.is_empty() and not f.local and f.landed > 1.5:
+			f.local = true
+			_message(cd.local)
+			msg_t = 2.0
+		if f.landed > (3.6 if not cd.is_empty() else 1.6 if f.land_at == "sea" else 0.9):
 			_finish()
 
 	_flight_sound(it, id, thrust, squeeze, speed)
 	_flight_anim(acc)
 	lbl.alt.text = "%d м" % max(0, int(hy))
-	lbl.dist.text = "Дальность %d м" % int(hx - f.x0)
+	lbl.dist.text = "Дальность %d м" % int(absf(hx - f.x0))
 	lbl.max.text = "Максимум %d м" % int(f.max)
 	lbl.thrust.value = acc
 	lbl.belly.value = f.inst
@@ -1954,6 +2028,68 @@ func _shots() -> void:
 	print("космос: высота %d м, вбок %d м" % [int(f.max), int(hx - f.x0)])
 	await get_tree().create_timer(0.3).timeout
 	shot.call("space_result")
+	# за границу: три бизнес-ланча под наклоном 0,8 влево (Париж) и вправо (Китай)
+	for c in Abroad.countries():
+		var cd: Dictionary = Abroad.COUNTRIES[c]
+		var want: float = cd.dir * 0.8
+		_start_launch()
+		await get_tree().create_timer(1.9).timeout
+		f.aim = 0.6
+		aim_t = 1e9
+		_launch()
+		var seen := {}
+		while state != State.RESULT:
+			await get_tree().process_frame
+			if f.landed == 0.0:
+				if ang > want + 0.05:
+					Input.action_press("left")
+				else:
+					Input.action_release("left")
+				if ang < want - 0.05:
+					Input.action_press("right")
+				else:
+					Input.action_release("right")
+			else:
+				Input.action_release("left")
+				Input.action_release("right")
+			for k in [["sea", Abroad.where(hx) == "sea"], ["border", f.abroad != "" and msg_t > 1.3], ["land", f.landed > 0.4],
+					["local", f.local and msg_t > 1.5]]:
+				if not seen.has(k[0]) and k[1]:
+					seen[k[0]] = true
+					shot.call("%s_%s" % [c, k[0]])
+		print("%s: высота %d м, вбок %d м, приземлился: %s" % [c, int(f.max), int(hx - f.x0), f.land_at])
+		await get_tree().create_timer(0.3).timeout
+		shot.call("%s_result" % c)
+	# плюх в море: Геннадия ставим над морем перед первой страной, он падает в воду
+	if Abroad.countries().size():
+		var cd: Dictionary = Abroad.COUNTRIES[Abroad.countries()[0]]
+		tray = ["salad"]
+		_start_launch()
+		await get_tree().create_timer(1.9).timeout
+		f.aim = 0.6
+		aim_t = 1e9
+		_launch()
+		hx = cd.border - cd.dir * Abroad.SEA * 0.5
+		hy = 60.0
+		vx = 0.0
+		cam.position = Vector2(hx * PX, -hy * PX)
+		while f.landed < 0.5:
+			await get_tree().process_frame
+		shot.call("sea_splash")
+		while state != State.RESULT:
+			await get_tree().process_frame
+		await get_tree().create_timer(0.3).timeout
+		shot.call("sea_result")
+		print("море: приземлился: %s" % f.land_at)
+		assert(f.land_at == "sea", "должен был плюхнуться в море")
+	_to_kiosk()
+	await get_tree().create_timer(0.3).timeout
+	shot.call("kiosk_cards")
+	postcards.open(awards.got)
+	await get_tree().create_timer(0.3).timeout
+	shot.call("postcards")
+	await _esc()
+	assert(not postcards.visible, "Esc должен закрыть альбом")
 	# испытание дня: условия на сегодня, полёт и итог
 	pc.set_paused(false)
 	stats.flights = 5

@@ -14,6 +14,15 @@ var aim := 0.0
 var marks_visible := false
 var best_m := 0.0
 var cam_center := Vector2.ZERO
+# Геннадий в море: кусок полосы моря cover_src рисуется поверх него в прямоугольнике cover
+var cover := Rect2()
+var cover_src := Rect2()
+var sea_tex: Texture2D
+const SPLASH := [Color("#f7f4ea"), Color("#d6e8f7"), Color("#95b9e3")]
+
+
+func _ready() -> void:
+	texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED  # кусок моря может перейти через край картинки
 
 
 func emit(pos: Vector2, dir: float, n: int, speed: float, base_vel: Vector2) -> void:
@@ -22,6 +31,16 @@ func emit(pos: Vector2, dir: float, n: int, speed: float, base_vel: Vector2) -> 
 		particles.append({
 			"p": pos, "v": base_vel * 0.3 + Vector2(sin(a), -cos(a)) * speed * 4.0,
 			"life": 1.2, "max": 1.2, "r": randf_range(1.5, 3.5), "c": Pal.GAS[randi() % 3],
+		})
+
+
+## Брызги: Геннадий плюхнулся в море в точке pos.
+func splash(pos: Vector2) -> void:
+	for k in 26:
+		var a := randf_range(-0.9, 0.9)
+		particles.append({
+			"p": pos + Vector2(randf_range(-10, 10), -2), "v": Vector2(sin(a), -cos(a)) * randf_range(40.0, 120.0),
+			"life": 0.9, "max": 0.9, "r": randf_range(1.0, 2.5), "c": SPLASH[randi() % 3], "c2": SPLASH[2], "g": 260.0,
 		})
 
 
@@ -34,6 +53,7 @@ func _process(dt: float) -> void:
 	for p in particles:
 		p.p += p.v * dt
 		p.v *= 0.96
+		p.v.y += p.get("g", 0.0) * dt  # брызги падают обратно в воду
 		p.life -= dt
 	particles = particles.filter(func(p): return p.life > 0.0)
 	for s in streaks:
@@ -45,9 +65,11 @@ func _process(dt: float) -> void:
 func _draw() -> void:
 	if marks_visible:
 		_draw_marks()
+	if sea_tex and cover.size.x > 0.0 and cover_src.size.x > 0.0:
+		draw_texture_rect_region(sea_tex, cover, cover_src)
 	for p in particles:
 		var k: float = p.life / p.max
-		draw_circle(p.p, p.r * (2.0 - k), p.c if k > 0.4 else Pal.GAS[3])
+		draw_circle(p.p, p.r * (2.0 - k), p.c if k > 0.4 else p.get("c2", Pal.GAS[3]))
 	for s in streaks:
 		var k: float = s.life / STREAK_LIFE
 		draw_line(s.p.round(), (s.p - s.d * s.len * k).round(), Color(Pal.WHITE, 0.4 + 0.5 * k), 1.0)
