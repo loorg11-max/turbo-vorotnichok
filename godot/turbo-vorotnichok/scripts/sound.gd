@@ -3,7 +3,7 @@ extends Node
 ## Две шины, Music и SFX: их громкость меняется в меню паузы (pc.gd). Музыка играет и на паузе.
 
 const ONE_SHOTS := ["click", "plop", "tray", "new_dish", "known_dish", "mush", "chomp", "step",
-	"launch", "boost", "boom", "record", "clouds", "land", "award", "medal", "gurgle"]
+	"launch", "boost", "boom", "record", "clouds", "space", "land", "award", "medal", "gurgle"]
 const LOOPS := ["gas", "squeeze", "wind"]
 const MUSIC_DB := -7.0
 const FADE := 1.2  # смена музыки, секунды

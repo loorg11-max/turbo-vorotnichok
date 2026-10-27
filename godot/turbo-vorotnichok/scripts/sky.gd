@@ -4,6 +4,8 @@ extends Node2D
 ## Голубя можно сбить: main.gd спрашивает hit() каждый кадр полёта.
 ## Ещё в воздухе тёплые потоки (lift() подхватывает падающего и несёт вверх) и пышки,
 ## улетевшие из Пышечной (grab(), только когда у Пышечной есть картинки).
+## Выше 2000 м космос (темноту и звёзды рисует space.gd): спутник, космонавт, станция и собака в ракете,
+## если пришла картинка GPT 33; пролетая рядом, Геннадий слышит их реплику (meet()).
 
 const PX := 4.0
 const CLOUD_Y := 1000.0
@@ -35,6 +37,14 @@ const THERMAL_UP := 16.0  # м/с: так быстро поднимается в
 const THERMAL_GRIP := 1.5  # как сильно поток тянет скорость Геннадия к своей
 const THERMAL_TIME := 4.0  # секунд на поток за полёт, дальше он слабеет до нуля: висеть вечно нельзя
 const SPECKS_M := 0.5  # струек тёплого воздуха на метр высоты потока
+## Космос: картинка, высота в метрах, первый по горизонтали, шаг повтора, что говорит, когда Геннадий рядом.
+const SPACE_MARKS := [
+	["sputnik", 2150.0, 20.0, 300.0, "Спутник: «Бип-бип!»"],
+	["cosmonaut", 2350.0, 130.0, 360.0, "Космонавт: «Приятного аппетита!»"],
+	["station", 2600.0, 240.0, 420.0, "Станция: «Вы к нам на обед?»"],
+	["dog", 2850.0, 330.0, 380.0, "Собака в ракете: «Гав!»"],
+]
+const MEET_R := 25.0  # метры: так близко нужно пролететь, чтобы услышать
 const PYSHKA_STEP := 170.0
 const PYSHKA_R := 6.0
 
@@ -49,6 +59,7 @@ var specks: Array = []  # {"th": номер потока, "x", "y" (м), "v", "p
 var used: Array = []  # сколько секунд этого полёта Геннадий провёл в каждом потоке
 var steam: Array = []  # {"th", "y" (м), "v", "dx"}
 var pyshki: Array = []  # {"s": Sprite2D, "base": Vector2, "phase"}
+var space: Array = []  # {"s": Sprite2D, "base": Vector2, "kind", "phase", "line", "met"}
 
 
 func _ready() -> void:
@@ -68,6 +79,8 @@ func _ready() -> void:
 	if GameData.kiosk_ready("pyshki"):
 		_pyshki()
 	_marks()
+	if SPACE_MARKS.all(func(m): return ResourceLoader.exists("res://art/gpt/space_%s.png" % m[0])):
+		_space()
 	for i in 4:
 		frames.append(load("res://art/gpt/pigeon_f%d.png" % (i + 1)))
 	daze_tex = load("res://art/gpt/pigeon_daze.png")
@@ -125,6 +138,8 @@ func _pyshki() -> void:
 ## Новый полёт: все пышки снова в воздухе, потоки снова в полную силу.
 func reset() -> void:
 	used.fill(0.0)
+	for m in space:
+		m.met = false
 	for p in pyshki:
 		p.s.visible = true
 
@@ -144,8 +159,40 @@ func _marks() -> void:
 			k += 1
 
 
+func _space() -> void:
+	for m in SPACE_MARKS:
+		var tex: Texture2D = load("res://art/gpt/space_%s.png" % m[0])
+		var x: float = m[2]
+		var k := 0
+		while x < X_TO:
+			var s := Sprite2D.new()
+			s.texture = tex
+			add_child(s)
+			space.append({"s": s, "base": Vector2(x, m[1] + _rand(k * 1.7 + x) * 80.0 - 40.0), "kind": m[0],
+				"phase": _rand(x + 0.5) * TAU, "line": m[4], "met": false})
+			x += m[3]
+			k += 1
+
+
+## Реплика того, мимо кого Геннадий сейчас пролетает в космосе (раз за полёт), или "".
+func meet(hx: float, hy: float) -> String:
+	for m in space:
+		if not m.met and (m.s.position / PX * Vector2(1, -1)).distance_to(Vector2(hx, hy)) < MEET_R:
+			m.met = true
+			return m.line
+	return ""
+
+
 func _process(dt: float) -> void:
 	t += dt
+	for m in space:
+		var p: Vector2 = m.base
+		if m.kind == "sputnik":
+			# спутник медленно идёт по орбите и возвращается в свою клетку
+			p.x -= fmod(t * 4.0 + m.phase * 20.0, 160.0) - 80.0
+		else:
+			p.y += sin(t * 0.4 + m.phase) * 3.0
+		m.s.position = Vector2(p.x * PX, -p.y * PX).round()
 	for m in marks:
 		var p: Vector2 = m.base
 		match m.kind:

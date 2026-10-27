@@ -62,6 +62,12 @@ const MEDALS := [
 	[250.0, "Бронза", Color("#d08a4e"), Color("#7a3f1d"), "bronze"],
 ]
 const LANDING_LINES := ["Ой...", "Ещё разок!", "Где мой галстук?", "Мягко сел!"]
+const SpaceScript := preload("res://scripts/space.gd")
+const SPACE_Y := SpaceScript.SPACE_Y
+## Что Геннадий говорит в космосе, по реплике раз в SPACE_SAY секунд.
+const SPACE_LINES := ["Мама, я в космосе!", "Хьюстон, у нас шаурма!", "Тут даже голубей нет", "Обед затянулся...",
+	"Начальник не поверит", "Земля в иллюминаторе!"]
+const SPACE_SAY := 3.2
 const OFFICE_M := 130.0  # крыша офиса: башня 520 точек
 const TUT_FLIGHTS := 3
 ## «Сжать булки»: газ копится в запас (быстрее у сильных блюд), отпустил — рывок, пока запас не кончится.
@@ -82,6 +88,7 @@ var hero: AnimatedSprite2D
 var cam: Camera2D
 var sky: TextureRect
 var sky_layer: Node2D  # облака, ориентиры высоты и голуби (sky.gd)
+var space: Node2D  # темнота и звёзды выше облаков (space.gd)
 var ui: Control
 var kiosk_panel: PanelContainer
 var hud: Control
@@ -283,7 +290,7 @@ func _check_progress(quiet := false) -> void:
 
 ## Высота и дальность: в полёте зовётся каждый кадр, поэтому всплывашка приходит в момент пересечения.
 func _check_height(h: float, quiet := false, dist := 0.0) -> void:
-	for m in [[OFFICE_M, "office"], [250.0, "bronze"], [600.0, "silver"], [CLOUD_Y, "clouds"]]:
+	for m in [[OFFICE_M, "office"], [250.0, "bronze"], [600.0, "silver"], [CLOUD_Y, "clouds"], [SPACE_Y, "space"]]:
 		if h >= m[0]:
 			_award(m[1], quiet)
 	if dist >= 1000.0:
@@ -304,6 +311,9 @@ func _build_world() -> void:
 	sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	sky.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.add_child(sky)
+	space = Node2D.new()
+	space.set_script(SpaceScript)
+	bg.add_child(space)
 
 	# параллакс: дальний город и мост с поездом двигаются медленнее камеры
 	far_city = Node2D.new()
@@ -1182,14 +1192,15 @@ func _start_launch() -> void:
 	eat_t = 1.6
 	f = {"t": 0.0, "stage": 0, "delay": 0.0, "fuel": 0.0, "store": 0.0, "inst": 0.0, "max": 0.0, "landed": 0.0, "won": false, "aim": 0.0,
 		"prev_best": best, "pigeons": 0, "fulls": 0, "rec": false, "air": 0.0, "booms": 0, "full": false, "boosting": false, "gurgled": false, "tilt": 0.0, "x0": hx,
-		"thermal": false, "pyshki": 0, "sweet": 0.0, "lit": -1}
+		"thermal": false, "pyshki": 0, "sweet": 0.0, "lit": -1,
+		"space": false, "space_t": 0.0, "space_said": []}
 	Engine.time_scale = 1.0
 	slow_t = 0.0
 	hero.play("eat")
 	snd.music_to("flight")
 	_seller("happy")
 	seller_bubble.say(_k().eat, 1.5)
-	lbl.goal.text = Daily.GOALS[dr.goal].hud if daily_on else "Облака: 1000 м"
+	lbl.goal.text = Daily.GOALS[dr.goal].hud if daily_on else _goal_text()
 	lbl.keys.text = _keys_text()
 	_message("Ням!")
 
@@ -1233,6 +1244,13 @@ func _set_stage(i: int) -> void:
 			_message(it.name)
 	else:
 		lbl.stage.text = "газ кончился"
+
+
+## Цель в углу экрана: облака, пока до них не долетал, потом космос.
+func _goal_text() -> String:
+	if best >= SPACE_Y:
+		return "Космос покорён"
+	return "Космос: %d м" % int(SPACE_Y) if best >= CLOUD_Y else "Облака: %d м" % int(CLOUD_Y)
 
 
 func _message(t: String) -> void:
@@ -1288,7 +1306,7 @@ func _finish() -> void:
 	if done_lines.size():
 		lbl.r_talons.text += "\n" + "\n".join(done_lines)
 	yandex.between_flights(stats.flights)
-	lbl.r_title.text = "ОБЛАКА ПОКОРЕНЫ!" if f.won else ("НОВЫЙ РЕКОРД!" if is_best else "ПРИЗЕМЛИЛСЯ")
+	lbl.r_title.text = "СЛЕТАЛ В КОСМОС!" if f.space else "ОБЛАКА ПОКОРЕНЫ!" if f.won else ("НОВЫЙ РЕКОРД!" if is_best else "ПРИЗЕМЛИЛСЯ")
 	var medal: Array = []
 	for m in MEDALS:
 		if f.max >= m[0]:
@@ -1308,6 +1326,8 @@ func _finish() -> void:
 		names.append(GameData.ITEMS[id].name)
 	lbl.r_tray.text = "Поднос: " + ", ".join(names)
 	var news_lines: Array = [] if news.is_empty() else ["Открылась %s! Она дальше по улице." % GameData.KIOSKS[news[0]].name]
+	if f.space:
+		news_lines.push_front("Геннадий слетал в космос и успел вернуться к концу обеда.")
 	if daily_line != "":
 		news_lines.push_front(daily_line)
 	lbl.r_news.text = "\n".join(news_lines)
@@ -1387,6 +1407,8 @@ func _process(dt: float) -> void:
 	bridge.position = Vector2(cam.position.x * 0.35, (cam.position.y + 140.0) * 0.35)
 	var k: float = clamp(hy / 1100.0, 0.0, 1.0)
 	sky.modulate = Color(0.72, 0.74, 0.92).lerp(Color.WHITE, k)
+	space.h = hy
+	space.cam = cam.position
 	_tutorial()
 
 
@@ -1612,7 +1634,32 @@ func _update_flight(dt: float) -> void:
 		f.won = true
 		_message("Облака! Цель достигнута")
 		snd.play("clouds")
-		lbl.goal.text = "Облака достигнуты"
+		if not daily_on and best < SPACE_Y:
+			lbl.goal.text = "Дальше космос: %d м" % int(SPACE_Y)
+	if not f.space and hy >= SPACE_Y:
+		f.space = true
+		f.space_t = 1.0  # первая реплика чуть позже надписи, чтобы облачко её не закрыло
+		_message("КОСМОС!")
+		snd.play("space")
+		_shake(2.0)
+		_award("space")
+		Engine.time_scale = 0.35
+		slow_t = 0.9
+		if not daily_on:
+			lbl.goal.text = "Космос!"
+	if f.space and f.landed == 0.0:
+		var met: String = sky_layer.meet(hx, hy)
+		if met != "":
+			_message(met)
+		# пока Геннадий выше облаков, он болтает
+		f.space_t -= dt
+		if f.space_t <= 0.0 and hy > CLOUD_Y:
+			f.space_t = SPACE_SAY
+			var left: Array = SPACE_LINES.filter(func(l): return not f.space_said.has(l))
+			if not left.is_empty():
+				var line: String = "Ого, космос!" if f.space_said.is_empty() else left.pick_random()
+				f.space_said.append(line)
+				_say(line, 2.2)
 	if hy <= 0.0 and f.t > 0.4:
 		if f.landed == 0.0:
 			f.air = f.t
@@ -1620,7 +1667,7 @@ func _update_flight(dt: float) -> void:
 			snd.stop_loops()
 			hero.scale = Vector2(1.3, 0.75)
 			_shake(clamp(-vy * 0.15, 1.0, 5.0))
-			_say("Облака мои!" if f.won else ("Рекорд!" if f.rec else LANDING_LINES.pick_random()), 0.9)
+			_say("Земля, я дома!" if f.space else "Облака мои!" if f.won else ("Рекорд!" if f.rec else LANDING_LINES.pick_random()), 0.9)
 		hy = 0.0
 		vx *= 0.3
 		vy = 0.0
@@ -1865,6 +1912,44 @@ func _shots() -> void:
 					shot.call("mustard_jolt")
 			print("поднос %s: высота %d м, вбок %d м" % [t, int(f.max), int(hx - f.x0)])
 		kiosk = "tigran"
+	# космос: три бизнес-ланча строго вверх (держим Геннадия у вертикали)
+	pc.set_paused(false)
+	best = 1200.0
+	kiosk = "tigran"
+	tray = ["lunch", "lunch", "lunch"]
+	_start_launch()
+	await get_tree().create_timer(1.9).timeout
+	f.aim = 0.6
+	aim_t = 1e9
+	_launch()
+	var dusk_shot := false
+	var space_shot := false
+	var top_shot := false
+	while state != State.RESULT:
+		await get_tree().process_frame
+		if ang > 0.05:
+			Input.action_press("left")
+		else:
+			Input.action_release("left")
+		if ang < -0.05:
+			Input.action_press("right")
+		else:
+			Input.action_release("right")
+		if not dusk_shot and hy > 1650.0:
+			dusk_shot = true
+			shot.call("space_dusk")
+		if not space_shot and f.space:
+			space_shot = true
+			await get_tree().create_timer(0.3).timeout
+			shot.call("space")
+		if not top_shot and f.space and vy < 0.0:
+			top_shot = true
+			shot.call("space_top")
+	Input.action_release("left")
+	Input.action_release("right")
+	print("космос: высота %d м, вбок %d м" % [int(f.max), int(hx - f.x0)])
+	await get_tree().create_timer(0.3).timeout
+	shot.call("space_result")
 	# испытание дня: условия на сегодня, полёт и итог
 	pc.set_paused(false)
 	stats.flights = 5

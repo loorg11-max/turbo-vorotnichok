@@ -36,6 +36,7 @@ PICK = {
     "dish_all_pyshki": "food:pyshka", "friends": "food:shpyshka", "sweet": "food:psugar", "catch": "food:pjam",
     "dish_all_chebureki": "food:cheburek", "rail": "food:fire",
     "dish_all_hotdogs": "food:hotdog", "goal": "food:mdog",  # значки появятся, когда придут картинки 31–32
+    "space": "gpt:space_sputnik",  # и этот, когда придёт картинка 33
 }
 
 

@@ -106,6 +106,16 @@ if [ -d split/hfood ]; then
   for f in split/hfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
 fi
 
+# Космос (33–34): край Земли на всю ширину экрана и четыре предмета над 2000 м. Каждая включается сама.
+[ -f raw/33_space_earth.png ] && px raw/33_space_earth.png $OUT/space_earth.png --size 640x0 --key --crop --godot gpt/space_earth.png
+if [ -f raw/34_space_objects.png ]; then
+  python3 -I $T/split_sheet.py raw/34_space_objects.png split/space --grid 4x1 --main --names sputnik,cosmonaut,station,dog
+  px split/space/sputnik.png $OUT/space_sputnik.png --size 44x0 --key --crop --godot gpt/space_sputnik.png
+  px split/space/cosmonaut.png $OUT/space_cosmonaut.png --size 0x44 --key --crop --godot gpt/space_cosmonaut.png
+  px split/space/station.png $OUT/space_station.png --size 120x0 --key --crop --godot gpt/space_station.png
+  px split/space/dog.png $OUT/space_dog.png --size 0x44 --key --crop --godot gpt/space_dog.png
+fi
+
 # Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.
 # Книга из 10d в маленьком размере не читается, на кнопке книги осталась шаурма.
 if [ -f raw/10d_ui_icons.png ]; then

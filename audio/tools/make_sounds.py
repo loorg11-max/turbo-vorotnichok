@@ -322,6 +322,21 @@ def s_clouds(rng):
     return norm(buf, 0.6)
 
 
+def s_space(rng):
+    # космос: терменвокс плывёт вверх с вибрато, сверху мерцают звёздочки
+    buf = np.zeros(n_of(2.2))
+    m = n_of(1.9)
+    t = tt(1.9)
+    glide = note(-5) * 2 ** ((np.minimum(t, 0.7) / 0.7) * 12 / 12)
+    f = glide * (1 + 0.025 * np.sin(2 * np.pi * 5.5 * t))
+    voice = sine(f) + 0.25 * sine(f * 2) + 0.1 * tri(f)
+    place(buf, voice * env(m, 0.15, 0.4, 0.7, 0.8), 0.0)
+    for k, nn in enumerate([24, 31, 28, 36, 33, 40]):
+        n = n_of(0.35)
+        place(buf, sine(np.full(n, note(nn))) * decay(n, 0.08) * 0.35, 0.35 + k * 0.17)
+    return norm(lowpass(buf, 6000), 0.6)
+
+
 def s_land(rng):
     buf = np.zeros(n_of(0.45))
     for at, v in ((0.0, 1.0), (0.16, 0.35)):
@@ -366,7 +381,7 @@ SOUNDS = {
     "known_dish": s_known_dish, "mush": s_mush, "chomp": s_chomp, "step": s_step,
     "launch": s_launch, "gas": s_gas, "squeeze": s_squeeze, "boost": s_boost,
     "boom": s_boom, "record": s_record, "clouds": s_clouds, "land": s_land,
-    "award": s_award, "medal": s_medal, "gurgle": s_gurgle, "wind": s_wind,
+    "award": s_award, "medal": s_medal, "gurgle": s_gurgle, "wind": s_wind, "space": s_space,
 }
 
 
