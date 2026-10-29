@@ -19,6 +19,7 @@ var cover := Rect2()
 var cover_src := Rect2()
 var sea_tex: Texture2D
 const SPLASH := [Color("#f7f4ea"), Color("#d6e8f7"), Color("#95b9e3")]
+const GLASS := [Color("#ffffff"), Color("#bfe3ff"), Color("#7fb2e5")]
 
 
 func _ready() -> void:
@@ -41,6 +42,16 @@ func splash(pos: Vector2) -> void:
 		particles.append({
 			"p": pos + Vector2(randf_range(-10, 10), -2), "v": Vector2(sin(a), -cos(a)) * randf_range(40.0, 120.0),
 			"life": 0.9, "max": 0.9, "r": randf_range(1.0, 2.5), "c": SPLASH[randi() % 3], "c2": SPLASH[2], "g": 260.0,
+		})
+
+
+## Осколки стекла: Геннадий влетел в окно офиса в точке pos (финал сюжета).
+func glass(pos: Vector2) -> void:
+	for k in 30:
+		var a := randf_range(-PI, PI)
+		particles.append({
+			"p": pos + Vector2(randf_range(-6, 6), randf_range(-6, 6)), "v": Vector2(cos(a), sin(a)) * randf_range(30.0, 110.0),
+			"life": 1.2, "max": 1.2, "r": randf_range(0.8, 2.0), "c": GLASS[randi() % 3], "c2": GLASS[2], "g": 220.0,
 		})
 
 

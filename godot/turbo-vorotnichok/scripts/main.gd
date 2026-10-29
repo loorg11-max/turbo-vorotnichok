@@ -10,7 +10,7 @@ const DRAG := 0.001
 const TURN := 1.9  # наклон, радиан в секунду (галстук-руль ускоряет)
 const SAVE_PATH := "user://save.cfg"
 
-enum State { WALK, KIOSK, LAUNCH, FLIGHT, RESULT }
+enum State { WALK, KIOSK, LAUNCH, FLIGHT, RESULT, FINALE }
 
 var state := State.KIOSK
 var known: Array = []
@@ -62,6 +62,14 @@ var frames := []  # листы анимаций: 0 Геннадий, 1 Лёша
 const DUEL_FLIGHTS := 3  # полётов у каждого
 const PLAYERS := ["Геннадий", "Лёша"]
 const PLAYERS_TO := ["Геннадию", "Лёше"]
+## Сюжет «Обеденный перерыв» (story.gd): глава, выполненные поручения, прочитанные сообщения, финал.
+var story := {"ch": 0, "done": [], "seen": 0, "final": false}
+var phone: Control  # переписка с начальником (phone.gd)
+var phone_btn: Button
+var finale: Control  # разговор в кабинете и титры (finale.gd)
+## Окно кабинета начальника на башне офиса (world.gd ставит офис в −330 точек), метры.
+const BOSS_WINDOW := Vector2(-42.5, 75.0)
+const FINALE_FLY := 2.8  # секунд от ларька до окна
 
 const WorldScript := preload("res://scripts/world.gd")
 const FONT_BODY := preload("res://fonts/Tiny5-Regular.ttf")
@@ -190,6 +198,7 @@ func _load() -> void:
 		tasks = cfg.get_value("game", "tasks", [])
 		daily.merge(cfg.get_value("game", "daily", {}), true)
 		daily_days = cfg.get_value("game", "daily_days", 0)
+		story.merge(cfg.get_value("game", "story", {}), true)
 	ghost_best = Ghost.load_best()
 	_fill_tasks()
 	_daily_check()
@@ -217,6 +226,7 @@ func _save() -> void:
 	cfg.set_value("game", "levels", levels)
 	cfg.set_value("game", "task_next", task_next)
 	cfg.set_value("game", "tasks", tasks)
+	cfg.set_value("game", "story", story)
 	cfg.set_value("game", "saved_at", int(Time.get_unix_time_from_system()))
 	cfg.save(SAVE_PATH)
 	yandex.push(SAVE_PATH)
@@ -305,6 +315,13 @@ func _check_progress(quiet := false) -> void:
 		_award("mush10", quiet)
 	if stats.flights >= 25:
 		_award("regular", quiet)
+	# поручения про рецепты выполняются прямо в ларьке
+	if not quiet and state != State.FLIGHT and state != State.RESULT:
+		var lines := _story_update({})
+		if lines.size():
+			(func(): lbl.tip.text = "%s: новое сообщение. %s" % [Story.BOSS, lines[0]]).call_deferred()
+	elif quiet:
+		_story_update({}, true)
 
 
 ## Высота и дальность: в полёте зовётся каждый кадр, поэтому всплывашка приходит в момент пересечения.
@@ -466,8 +483,16 @@ func _build_ui() -> void:
 	postcards = Control.new()
 	postcards.set_script(preload("res://scripts/postcards.gd"))
 	ui.add_child(postcards)
+	phone = Control.new()
+	phone.set_script(preload("res://scripts/phone.gd"))
+	phone.closed.connect(_render_counts)
+	ui.add_child(phone)
+	finale = Control.new()
+	finale.set_script(preload("res://scripts/finale.gd"))
+	finale.finished.connect(_finale_done)
+	ui.add_child(finale)
 	# окно поверх ларька: геймпад ходит только по нему, после закрытия снова по ларьку
-	for o in [book, shop, awards.screen, postcards]:
+	for o in [book, shop, awards.screen, postcards, phone]:
 		o.visibility_changed.connect(_overlay_changed.bind(o))
 
 
@@ -503,12 +528,29 @@ func _build_kiosk() -> void:
 	var corner := VBoxContainer.new()
 	corner.add_theme_constant_override("separation", 2)
 	head.add_child(corner)
+	var rank := HBoxContainer.new()
+	rank.alignment = BoxContainer.ALIGNMENT_END
+	rank.add_theme_constant_override("separation", 3)
+	corner.add_child(rank)
+	var badge := TextureRect.new()
+	badge.texture = Story.badge_icon()
+	badge.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	rank.add_child(badge)
+	lbl.rank = _label("", 8, Pal.CREAM)
+	rank.add_child(lbl.rank)
 	corner.add_child(lbl.best)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_END
+	btns.add_theme_constant_override("separation", 4)
+	corner.add_child(btns)
+	# телефон с поручениями начальника: после первого полёта
+	phone_btn = Button.new()
+	phone_btn.pressed.connect(_open_phone)
+	btns.add_child(phone_btn)
 	# дуэль с коллегой: открывается вместе с испытанием дня
 	duel_btn = Button.new()
-	duel_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
 	duel_btn.pressed.connect(func(): _end_duel() if duel else _start_duel())
-	corner.add_child(duel_btn)
+	btns.add_child(duel_btn)
 	lbl.tip = _label("", 8, Pal.ORANGE)
 	titles.add_child(lbl.tip)
 
@@ -765,7 +807,7 @@ func refresh_controls() -> void:
 
 
 func _overlay_changed(o: Control) -> void:
-	var any: bool = book.visible or shop.visible or awards.screen.visible or postcards.visible
+	var any: bool = book.visible or shop.visible or awards.screen.visible or postcards.visible or phone.visible
 	for b in kiosk_panel.find_children("*", "BaseButton", true, false):
 		b.focus_mode = Control.FOCUS_NONE if any else Control.FOCUS_ALL
 	if o.visible and o == awards.screen:
@@ -777,7 +819,7 @@ func _overlay_changed(o: Control) -> void:
 func _pad_focus() -> void:
 	if not Controls.pad or get_tree().paused:
 		return
-	for o in [shop, book, postcards]:
+	for o in [shop, book, postcards, phone]:
 		if o.visible:
 			var bs: Array = o.find_children("*", "Button", true, false).filter(func(b): return b.is_visible_in_tree() and not b.disabled)
 			if bs.size():
@@ -845,6 +887,11 @@ func _render_counts() -> void:
 	awards_btn.icon = awards.cup(true)
 	talons_btn.text = "Талоны %d" % talons
 	cards_btn.text = "Открытки %d/%d" % [Postcards.got(awards.got).size(), Postcards.list().size()]
+	var n := Story.unread(story)
+	phone_btn.text = "Телефон" + (" (%d)" % n if n > 0 else "")
+	phone_btn.add_theme_color_override("font_color", Pal.NEON if n > 0 else Pal.CREAM)
+	phone_btn.visible = stats.flights >= 1
+	lbl.rank.text = Story.title(story.ch)
 
 
 ## Окно закрыли крестиком: выходим так же, через quit_game (auto_accept_quit выключен в _ready).
@@ -1224,7 +1271,7 @@ func _dress() -> void:
 
 ## Счёт дуэли для угла ларька и итогов.
 func _duel_score() -> String:
-	return "%s %d м\n%s %d м" % [PLAYERS[0], int(duel.best[0]), PLAYERS[1], int(duel.best[1])]
+	return "%s %d м · %s %d м" % [PLAYERS[0], int(duel.best[0]), PLAYERS[1], int(duel.best[1])]
 
 
 ## Заголовок ларька и кнопка дуэли.
@@ -1278,6 +1325,95 @@ func _duel_result() -> String:
 
 func _duel_over() -> bool:
 	return duel and duel.turn >= DUEL_FLIGHTS * 2
+
+
+# ---------------- сюжет «Обеденный перерыв» ----------------
+
+## Проверить поручения (r — итог полёта или пустой словарь), начислить премии за главы.
+## Возвращает строки для итогов. quiet: при запуске, без звука.
+func _story_update(r: Dictionary, quiet := false) -> Array:
+	var lines: Array = []
+	for e in Story.update(story, r, known):
+		if e[0] == "order":
+			lines.append("Поручение выполнено: «%s»." % e[1].get_slice(":", 0))
+		else:
+			var c: Dictionary = Story.CHAPTERS[e[1]]
+			talons += c.talons
+			lines.append("Глава %d закрыта! Новая должность: %s. Премия +%d талонов." % [e[1] + 1, c.title, c.talons])
+			if not quiet:
+				snd.play("medal")
+	if lines.size():
+		_save()
+		_render_counts()
+	return lines
+
+
+func _open_phone() -> void:
+	phone.open(story)
+	story.seen = Story.messages(story).size()
+	_save()
+	_render_counts()
+
+
+## Финал ждёт: все главы пройдены, сценки ещё не было.
+func _finale_due() -> bool:
+	return Story.finished(story) and not story.final
+
+
+## Финальная сценка: Геннадий взлетает от ларька и влетает в окно кабинета начальника.
+func _finale() -> void:
+	if duel:
+		tray = duel.trays[0] if _who() == 1 else tray
+		duel = {}
+	state = State.FINALE
+	story.final = true
+	_save()
+	kiosk_panel.visible = false
+	result_panel.visible = false
+	hud.visible = false
+	hero_bubble.hide_now()
+	seller_bubble.hide_now()
+	_dress()
+	hero.flip_h = true
+	hero.visible = true
+	hero.play("launch")
+	snd.play("launch")
+	snd.music_to("flight")
+	var from := Vector2(hx, 0.0)
+	var top := Vector2((hx + BOSS_WINDOW.x) * 0.5, BOSS_WINDOW.y + 60.0)
+	# дуга от ларька к окну: кривая Безье через точку над серединой пути
+	var fly := func(k: float) -> void:
+		var p := from.lerp(top, k).lerp(top.lerp(BOSS_WINDOW, k), k)
+		hx = p.x
+		hy = p.y
+		if k > 0.12 and hero.animation != "fly":
+			hero.play("fly")
+		# у самого окна Геннадий уменьшается: влетает внутрь
+		hero.scale = Vector2.ONE * lerpf(1.0, 0.35, clampf((k - 0.85) / 0.15, 0.0, 1.0))
+		if k < 0.9 and randf() < 0.5:
+			fx.emit(hero.position + Vector2(14, 8), PI * 0.75, 1, 6.0, Vector2.ZERO)
+	var crash := func() -> void:
+		hero.visible = false
+		fx.glass(Vector2(BOSS_WINDOW.x * PX, -BOSS_WINDOW.y * PX))
+		snd.play("boom")
+		_shake(6.0)
+	var tw := create_tween()
+	tw.tween_method(fly, 0.0, 1.0, FINALE_FLY)
+	tw.tween_callback(crash)
+	tw.tween_interval(1.0)
+	tw.tween_callback(finale.play)
+
+
+## Титры прошли: Геннадий снова выходит из офиса на обед.
+func _finale_done() -> void:
+	hero.visible = true
+	hero.scale = Vector2.ONE
+	hero.flip_h = false
+	story.seen = Story.messages(story).size()
+	_save()
+	_render_counts()
+	_walk_in()
+	_say("Турбо-директор идёт обедать!", 2.4)
 
 
 # ---------------- состояния ----------------
@@ -1359,6 +1495,9 @@ func _to_kiosk() -> void:
 
 
 func _start_launch() -> void:
+	if state == State.RESULT and _finale_due():
+		_finale()
+		return
 	if tray.is_empty():
 		return
 	tut.finish("go")
@@ -1504,6 +1643,8 @@ func _finish() -> void:
 			done_lines.append(_task_done(t))
 	var daily_line := _daily_result(r) if daily_on else ""
 	var duel_line := _duel_result()
+	r["rail"] = tray.any(func(id): return GameData.ITEMS[id].get("h", 0.0) > 0.0)
+	var story_lines := _story_update(r)
 	_save()
 	_render_counts()
 	lbl.r_talons.text = "Талоны: +%d за высоту, всего %d" % [earned, talons]
@@ -1544,6 +1685,9 @@ func _finish() -> void:
 		news_lines.push_front(daily_line)
 	if duel_line != "":
 		news_lines.push_front(duel_line)
+	if story_lines.size():
+		news_lines.append_array(story_lines)
+		news_lines.append("Пётр Семёныч: срочно в офис!" if _finale_due() else "Новое сообщение в телефоне от Петра Семёныча.")
 	lbl.r_news.text = "\n".join(news_lines)
 	lbl.r_news.visible = not news_lines.is_empty()
 	var open := GameData.open_kiosks(best)
@@ -1561,6 +1705,8 @@ func _finish() -> void:
 		lbl.other.visible = false
 	elif duel:
 		lbl.again.text = "Летит %s" % PLAYERS[_who()]
+	if _finale_due():
+		lbl.again.text = "В офис!"
 	lbl.keys.text = ""
 	lbl.r_hint.text = _keys_text()
 	result_panel.reset_size()
@@ -1615,7 +1761,10 @@ func _process(dt: float) -> void:
 
 	# герой, камера, небо, параллакс
 	hero.position = Vector2(hx * PX, -hy * PX)
-	hero.rotation = (ang - 0.5) if hero.animation == "fly" else 0.0
+	if state != State.FINALE:
+		hero.rotation = (ang - 0.5) if hero.animation == "fly" else 0.0
+	else:
+		hero.rotation = -0.3
 	# плюхнулся в море: ноги Геннадия под водой, поверх рисуется кусок той же полосы моря
 	if f.get("land_at", "") == "sea" and f.landed > 0.0 and state in [State.FLIGHT, State.RESULT]:
 		fx.cover = Rect2(hero.position.x - 20.0, 0.0, 40.0, 24.0)
@@ -1630,7 +1779,8 @@ func _process(dt: float) -> void:
 		shake = move_toward(shake, 0.0, dt * 12.0)
 	else:
 		cam.offset = Vector2.ZERO
-	hero.scale = hero.scale.lerp(Vector2.ONE, min(1.0, dt * 10.0))
+	if state != State.FINALE:  # в финале масштабом Геннадий «влетает» в окно
+		hero.scale = hero.scale.lerp(Vector2.ONE, min(1.0, dt * 10.0))
 	fx.marks_visible = state in [State.LAUNCH, State.FLIGHT, State.RESULT]
 	fx.best_m = f.get("prev_best", best)
 	fx.cam_center = cam.get_screen_center_position()
@@ -1671,7 +1821,7 @@ func _tutorial() -> void:
 
 
 func _tut_want() -> Array:
-	if book.visible or awards.screen.visible or postcards.visible:
+	if book.visible or awards.screen.visible or postcards.visible or phone.visible or state == State.FINALE:
 		return []
 	# про новый ларёк скажем и опытному игроку
 	if state == State.KIOSK and switch_btn.visible and not tut.has("kiosk2"):
@@ -2050,6 +2200,14 @@ func _shots() -> void:
 	tray = []
 	best = 0.0
 	await get_tree().create_timer(2.0).timeout
+	# -- --shot story: только сюжет и финал
+	if "story" in OS.get_cmdline_user_args():
+		stats.flights = 10
+		known = ["shawarma", "double"]
+		best = 1200.0
+		await _shots_story(shot)
+		quit_game()
+		return
 	# -- --shot duel: только дуэль и призрак, чтобы не ждать весь прогон
 	if "duel" in OS.get_cmdline_user_args():
 		stats.flights = 10
@@ -2257,6 +2415,7 @@ func _shots() -> void:
 		shot.call("canteen_result")
 		kiosk = "tigran"
 	await _shots_duel(shot)
+	await _shots_story(shot)
 	# космос: три бизнес-ланча строго вверх (держим Геннадия у вертикали)
 	pc.set_paused(false)
 	best = 1200.0
@@ -2431,3 +2590,53 @@ func _shots_duel(shot: Callable) -> void:
 			rec_shot = true
 			shot.call("ghost_record")
 	_to_kiosk()
+
+
+## Сюжет для прогона --shot: полёт с выполненным поручением, телефон, финал и титры.
+func _shots_story(shot: Callable) -> void:
+	pc.set_paused(false)
+	kiosk = "tigran"
+	story = {"ch": 1, "done": [], "seen": 3, "final": false}
+	_to_kiosk()
+	await get_tree().create_timer(0.3).timeout
+	shot.call("story_kiosk")
+	# два полёта: первый выполняет поручение «600 м» второй главы, перед вторым все главы пройдены
+	for t in [["double", "double"], ["shawarma"]]:
+		if t.size() == 1:
+			story = {"ch": Story.CHAPTERS.size(), "done": [], "seen": 0, "final": false}
+			_to_kiosk()  # из итогов «Тот же поднос» сразу запустил бы финал
+		tray = t
+		_start_launch()
+		await get_tree().create_timer(1.9).timeout
+		f.aim = 0.6
+		aim_t = 1e9
+		_launch()
+		while state != State.RESULT:
+			await get_tree().process_frame
+		await get_tree().create_timer(0.3).timeout
+		shot.call("story_result" if t.size() == 2 else "finale_result")
+		if t.size() == 2:
+			_open_phone()
+			await get_tree().create_timer(0.3).timeout
+			shot.call("phone")
+			phone.hide_phone()
+	_start_launch()
+	await get_tree().create_timer(1.6).timeout
+	shot.call("finale_fly")
+	await get_tree().create_timer(1.4).timeout
+	shot.call("finale_crash")
+	while not finale.visible:
+		await get_tree().process_frame
+	await get_tree().create_timer(0.2).timeout
+	shot.call("finale_talk")
+	for i in finale.LINES.size():
+		finale._next()
+	await get_tree().create_timer(4.0).timeout
+	shot.call("credits")
+	finale._done()
+	await get_tree().create_timer(1.5).timeout
+	shot.call("finale_walk")
+	while state == State.WALK:
+		await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	shot.call("finale_kiosk")
