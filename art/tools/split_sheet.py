@@ -14,8 +14,10 @@ import numpy as np
 from PIL import Image
 
 
-def keep_main(piece, tol):
-    """Оставить самую большую связную область не-фона, остальное закрасить розовым (#FF00FF)."""
+def keep_main(piece, tol, inner=False):
+    """Оставить самую большую связную область не-фона, остальное закрасить розовым (#FF00FF).
+    inner: ещё оставить куски, которые не касаются левого и правого края ячейки (слетевший колпак,
+    брызги), а обрезки соседей всегда касаются края."""
     arr = np.asarray(piece).astype(int)
     fg = ~((arr[..., 0] > 255 - tol) & (arr[..., 2] > 255 - tol) & (arr[..., 1] < tol + 40))
     h, w = fg.shape
@@ -35,8 +37,12 @@ def keep_main(piece, tol):
                     lab[ny, nx] = k
                     stack.append((ny, nx))
         sizes.append(n)
+    keep = {int(np.argmax(sizes))}
+    if inner:
+        edge = set(lab[:, 0].tolist()) | set(lab[:, -1].tolist())
+        keep |= {k for k in range(1, len(sizes)) if k not in edge and sizes[k] >= 30}
     out = np.asarray(piece).copy()
-    out[(lab != int(np.argmax(sizes))) & fg] = (255, 0, 255)
+    out[~np.isin(lab, list(keep)) & fg] = (255, 0, 255)
     return Image.fromarray(out)
 
 
@@ -50,6 +56,7 @@ def main():
     ap.add_argument("--min", type=int, default=6, help="минимальный размер куска в клетках")
     ap.add_argument("--grid", help="КОЛОНКИxСТРОКИ: просто делить рисунок на равные ячейки, когда предметы стоят ровной сеткой")
     ap.add_argument("--main", action="store_true", help="с --grid: в ячейке оставить только самый большой кусок (обрезки соседей закрасить фоном)")
+    ap.add_argument("--inner", action="store_true", help="с --main: оставить и отдельные куски внутри ячейки, не у её краёв")
     a = ap.parse_args()
 
     im = Image.open(a.src).convert("RGB")
@@ -67,7 +74,7 @@ def main():
             box = (int(x0 + cx * cw), int(y0 + cy * ch), int(x0 + (cx + 1) * cw), int(y0 + (cy + 1) * ch))
             piece = im.crop(box)
             if a.main:
-                piece = keep_main(piece, a.tol)
+                piece = keep_main(piece, a.tol, a.inner)
             piece.save(os.path.join(a.outdir, n + ".png"))
         print(f"нарезано по сетке {cols}×{rows_n}: {len(names)}")
         return

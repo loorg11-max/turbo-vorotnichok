@@ -1,6 +1,6 @@
 # Промпты для GPT: Столовая №1 (пятый ларёк)
 
-⏳ Нужны все четыре (2026-10-28). Общий список того, что сделано: `README.md` в этой папке.
+✅ Все четыре пришли 2026-10-29 и стоят в игре (с версии 0.9a). Общий список того, что сделано: `README.md` в этой папке.
 
 Решения loorg 2026-10-28 (все «а»): пятый ларёк на улице после Хот-догов, повариха тётя Зина, открывается с 2500 м; шведский стол: на поднос влезает 5 блюд вместо 3, но 4-е и 5-е раздувают пузо; 6 продуктов и 9 рецептов; компот даёт «второе дыхание», прошлое блюдо загорается ещё раз. Код уже в игре, ларёк включится сам, когда придут все четыре картинки.
 
@@ -28,7 +28,7 @@
 - путает буквы на вывеске: допишите «the sign says exactly СТОЛОВАЯ in Cyrillic, 8 letters»;
 - фон не розовый: допишите «background only solid #FF00FF, no shadows, no pattern».
 
-### ⏳ 41_canteen_stall: павильон столовой (горизонтальная)
+### ✅ 41_canteen_stall: павильон столовой (горизонтальная)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot and the attached shawarma truck: same crisp square pixels of one size, same dark outline (#090c1c), same evening palette, same scale and level of detail as the truck. No anti-aliasing, no blur, no gradients.
@@ -36,7 +36,7 @@ A small old Soviet-style workers' canteen pavilion, strictly flat side view, sta
 Solid flat pure magenta background #FF00FF filling the whole image. No other text anywhere, no numbers, no menus with writing.
 ```
 
-### ⏳ 42_zina: тётя Зина, три настроения (квадратная)
+### ✅ 42_zina: тётя Зина, три настроения (квадратная)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot and the attached seller sheet: same crisp square pixels of one size, same dark outline (#090c1c), same palette, same size and framing as the attached sheet (head and torso, as seen behind a counter).
@@ -45,7 +45,7 @@ Aunt Zina, a plump strict but kind canteen cook about 55 years old: a tall white
 Solid flat pure magenta background #FF00FF filling the whole image. No text, no labels, no numbers, no borders.
 ```
 
-### ⏳ 43_canteen_food: шесть продуктов (квадратная)
+### ✅ 43_canteen_food: шесть продуктов (квадратная)
 
 ```
 16-bit pixel art in the exact same style as the attached food icons: same crisp square pixels, same dark outline (#090c1c), same size and level of detail, same 3 by 2 grid with wide gaps.
@@ -53,7 +53,7 @@ Solid flat pure magenta background #FF00FF filling the whole image. No text, no 
 Solid flat pure magenta background #FF00FF filling the whole image. Nothing overlapping. No text, no letters, no labels.
 ```
 
-### ⏳ 44_canteen_dishes: девять блюд (квадратная)
+### ✅ 44_canteen_dishes: девять блюд (квадратная)
 
 ```
 16-bit pixel art in the exact same style as the attached dish icons: same crisp square pixels, same dark outline (#090c1c), same size and level of detail, in a 3 by 3 grid with wide gaps.

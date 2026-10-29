@@ -84,7 +84,12 @@ if [ -f raw/26_chebureki_dishes.png ]; then
   python3 -I $T/split_sheet.py raw/26_chebureki_dishes.png split/cfood --names cheburek,chcheese,belyash,fire,firekvass,okroshka,donut,fshawarma,station
 fi
 if [ -d split/cfood ]; then
-  for f in split/cfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
+  for f in split/cfood/*.png; do
+    n=$(basename "$f" .png); ex=""
+    # кисель лиловый, в общей палитре такого нет
+    case $n in kissel|kbun) ex="--extra 5e0a3e,8e1468,b01c74,d0469c,e478b8";; esac
+    px "$f" $OUT/food_$n.png --size 0x28 --key --crop $ex --godot gpt/food_$n.png
+  done
 fi
 # корзина фритюра из 25 в 28 точках превращается в кашу из сетки: масло рисуем по точкам
 [ -f raw/25_chebureki_food.png ] && python3 -I $T/draw_oil.py $OUT/food_oil.png --godot gpt/food_oil.png
@@ -126,7 +131,7 @@ done
 # Столовая №1 (41–44). Включается сама, когда есть все картинки.
 if [ -f raw/41_canteen_stall.png ]; then px raw/41_canteen_stall.png $OUT/stall_canteen.png --size 220x0 --key --crop --godot gpt/stall_canteen.png; fi
 if [ -f raw/42_zina.png ]; then
-  python3 -I $T/split_sheet.py raw/42_zina.png split/zina --grid 3x1 --main --names happy,shock,grumpy
+  python3 -I $T/split_sheet.py raw/42_zina.png split/zina --grid 3x1 --main --inner --names happy,shock,grumpy
   for n in happy shock grumpy; do px split/zina/$n.png $OUT/zina_$n.png --size 0x64 --key --crop --godot gpt/zina_$n.png; done
   python3 -I $T/small_sprite.py raw/42_zina.png $OUT --cols 3 --names happy,shock,grumpy --height 30 --prefix zina_small --godot gpt
 fi
@@ -137,7 +142,12 @@ if [ -f raw/44_canteen_dishes.png ]; then
   python3 -I $T/split_sheet.py raw/44_canteen_dishes.png split/cfood --names kpure,kgrech,dgrech,dcompote,gborsch,pborsch,kbun,kcutlet,complex
 fi
 if [ -d split/cfood ]; then
-  for f in split/cfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
+  for f in split/cfood/*.png; do
+    n=$(basename "$f" .png); ex=""
+    # кисель лиловый, в общей палитре такого нет
+    case $n in kissel|kbun) ex="--extra 5e0a3e,8e1468,b01c74,d0469c,e478b8";; esac
+    px "$f" $OUT/food_$n.png --size 0x28 --key --crop $ex --godot gpt/food_$n.png
+  done
 fi
 
 # Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.

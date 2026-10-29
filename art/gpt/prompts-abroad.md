@@ -1,6 +1,6 @@
 # Промпты для GPT: перелёт за границу (35–40)
 
-⏳ Нужны все шесть (2026-10-27). Общий список того, что сделано: `README.md` в этой папке.
+✅ Все шесть пришли 2026-10-29 и стоят в игре (с версии 0.9a). Общий список того, что сделано: `README.md` в этой папке.
 
 Сцена (ответы loorg 2026-10-27): улетел на 3000 м влево, попал в Париж, вправо в Китай. Перед границей внизу море, на самой границе полосатый столб, за ней чужой город и чужая улица. Код уже готов, каждая страна включится сама, когда придут её картинки и общие для обеих 35–36.
 
@@ -29,7 +29,7 @@
 - пишет вывески: допишите «absolutely no text, no letters, no hieroglyphs, signs are blank»;
 - фон не розовый: допишите «background only solid #FF00FF, no shadows, no pattern».
 
-### 35_sea: море до горизонта (очень широкая, 3:1 или шире)
+### ✅ 35_sea: море до горизонта (очень широкая, 3:1 или шире)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot and the attached sidewalk strip: same crisp square pixels of one size, same evening palette. No anti-aliasing, no blur, no smooth gradients: flat color bands and dithering.
@@ -37,7 +37,7 @@ Open sea seen strictly from the side, as a very wide horizontal ground strip for
 Above the horizon: solid flat pure magenta background #FF00FF. No boats, no land, no sky, no moon, no text.
 ```
 
-### 36_border: островок с пограничным столбом (квадратная)
+### ✅ 36_border: островок с пограничным столбом (квадратная)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot: same crisp square pixels of one size, same dark outline (#090c1c), same evening palette. No anti-aliasing, no blur, no gradients.
@@ -45,7 +45,7 @@ A tiny sandy islet in the sea, strictly flat side view: a striped red and green 
 Solid flat pure magenta background #FF00FF filling the whole image. No sea around it, no text, no letters, no numbers, no flags.
 ```
 
-### 37_paris_far: дальний Париж (очень широкая, 3:1 или шире)
+### ✅ 37_paris_far: дальний Париж (очень широкая, 3:1 или шире)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot and the attached distant city: same crisp square pixels, same evening blue palette, same scale, same height of the skyline band.
@@ -53,7 +53,7 @@ A distant Paris skyline at night as a wide horizontal band for parallax backgrou
 Above the skyline: solid flat pure magenta background #FF00FF. No text, no signs, no letters.
 ```
 
-### 38_paris_street: парижский тротуар (очень широкая, 3:1 или шире)
+### ✅ 38_paris_street: парижский тротуар (очень широкая, 3:1 или шире)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot and the attached sidewalk strip: same crisp square pixels, same size and height of the strip, same evening palette.
@@ -61,7 +61,7 @@ A Paris street ground strip, strictly flat side view, same layout as the attache
 Above the strip: solid flat pure magenta background #FF00FF. No people, no cars, no text.
 ```
 
-### 39_china_far: дальний китайский город (очень широкая, 3:1 или шире)
+### ✅ 39_china_far: дальний китайский город (очень широкая, 3:1 или шире)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot and the attached distant city: same crisp square pixels, same evening blue palette, same scale, same height of the skyline band.
@@ -69,7 +69,7 @@ A distant Chinese city skyline at night as a wide horizontal band for parallax b
 Above the skyline: solid flat pure magenta background #FF00FF. No text, no signs, no hieroglyphs.
 ```
 
-### 40_china_street: китайский тротуар (очень широкая, 3:1 или шире)
+### ✅ 40_china_street: китайский тротуар (очень широкая, 3:1 или шире)
 
 ```
 16-bit pixel art in the exact same style as the attached game screenshot and the attached sidewalk strip: same crisp square pixels, same size and height of the strip, same evening palette.

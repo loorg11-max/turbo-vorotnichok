@@ -360,7 +360,8 @@ func _build_world() -> void:
 		var n := Node2D.new()
 		add_child(n)
 		var t := WorldScript.tiled("res://art/gpt/%s_far.png" % c, n)
-		t.position = Vector2(-t.texture.get_width() * 30, -t.texture.get_height() - 40)
+		# моста за границей нет, поэтому город стоит ниже домашнего и уходит низом за тротуар
+		t.position = Vector2(-t.texture.get_width() * 30, -t.texture.get_height() + 2)
 		far_abroad[c] = n
 	bridge = Node2D.new()
 	add_child(bridge)
@@ -2208,6 +2209,16 @@ func _shots() -> void:
 		await _shots_story(shot)
 		quit_game()
 		return
+	# -- --shot abroad: только Париж, Китай и море
+	if "abroad" in OS.get_cmdline_user_args():
+		stats.flights = 10
+		known = ["shawarma", "double"]
+		best = 1200.0
+		_to_kiosk()
+		tray = ["lunch", "lunch", "lunch"]
+		await _shots_abroad(shot)
+		quit_game()
+		return
 	# -- --shot duel: только дуэль и призрак, чтобы не ждать весь прогон
 	if "duel" in OS.get_cmdline_user_args():
 		stats.flights = 10
@@ -2458,6 +2469,45 @@ func _shots() -> void:
 	print("космос: высота %d м, вбок %d м" % [int(f.max), int(hx - f.x0)])
 	await get_tree().create_timer(0.3).timeout
 	shot.call("space_result")
+	await _shots_abroad(shot)
+	_to_kiosk()
+	await get_tree().create_timer(0.3).timeout
+	shot.call("kiosk_cards")
+	postcards.open(awards.got)
+	await get_tree().create_timer(0.3).timeout
+	shot.call("postcards")
+	await _esc()
+	assert(not postcards.visible, "Esc должен закрыть альбом")
+	# испытание дня: условия на сегодня, полёт и итог
+	pc.set_paused(false)
+	stats.flights = 5
+	kiosk = "tigran"
+	_to_kiosk()
+	_set_daily(true)
+	print("испытание дня: ", dr)
+	for id in dr.base.slice(0, 2):
+		_add_bowl(id)
+	await get_tree().create_timer(0.3).timeout
+	shot.call("daily")
+	tray = [dr.dishes[0], dr.base[0]].slice(0, dr.tray)
+	_start_launch()
+	await get_tree().create_timer(1.9).timeout
+	f.aim = 0.6
+	aim_t = 1e9
+	_launch()
+	while state != State.RESULT:
+		await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	shot.call("daily_result")
+	_set_daily(false)
+	print("user dir: ", OS.get_user_data_dir())
+	quit_game()
+
+
+## Дуэль с Лёшей для прогона --shot: по три полёта, призрак соперника, итоги и выход.
+
+## Прогон заграницы: полёты в Париж и Китай и плюх в море. Отдельно: `-- --shot abroad`.
+func _shots_abroad(shot: Callable) -> void:
 	# за границу: три бизнес-ланча под наклоном 0,8 влево (Париж) и вправо (Китай)
 	for c in Abroad.countries():
 		var cd: Dictionary = Abroad.COUNTRIES[c]
@@ -2512,41 +2562,7 @@ func _shots() -> void:
 		shot.call("sea_result")
 		print("море: приземлился: %s" % f.land_at)
 		assert(f.land_at == "sea", "должен был плюхнуться в море")
-	_to_kiosk()
-	await get_tree().create_timer(0.3).timeout
-	shot.call("kiosk_cards")
-	postcards.open(awards.got)
-	await get_tree().create_timer(0.3).timeout
-	shot.call("postcards")
-	await _esc()
-	assert(not postcards.visible, "Esc должен закрыть альбом")
-	# испытание дня: условия на сегодня, полёт и итог
-	pc.set_paused(false)
-	stats.flights = 5
-	kiosk = "tigran"
-	_to_kiosk()
-	_set_daily(true)
-	print("испытание дня: ", dr)
-	for id in dr.base.slice(0, 2):
-		_add_bowl(id)
-	await get_tree().create_timer(0.3).timeout
-	shot.call("daily")
-	tray = [dr.dishes[0], dr.base[0]].slice(0, dr.tray)
-	_start_launch()
-	await get_tree().create_timer(1.9).timeout
-	f.aim = 0.6
-	aim_t = 1e9
-	_launch()
-	while state != State.RESULT:
-		await get_tree().process_frame
-	await get_tree().create_timer(0.3).timeout
-	shot.call("daily_result")
-	_set_daily(false)
-	print("user dir: ", OS.get_user_data_dir())
-	quit_game()
 
-
-## Дуэль с Лёшей для прогона --shot: по три полёта, призрак соперника, итоги и выход.
 func _shots_duel(shot: Callable) -> void:
 	pc.set_paused(false)
 	kiosk = "tigran"
