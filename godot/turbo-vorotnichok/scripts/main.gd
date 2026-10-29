@@ -69,6 +69,9 @@ const SPACE_LINES := ["Мама, я в космосе!", "Хьюстон, у н�
 	"Начальник не поверит", "Земля в иллюминаторе!"]
 const SPACE_SAY := 3.2
 const SINK := 2.5  # плюхнулся в море: насколько метров Геннадий уходит в воду
+## Шведский стол (Столовая №1): 4-е и 5-е блюдо раздувают пузо, на столько в секунду, пока горят.
+## Компот не еда, его это не касается. Те же числа в godot/tools/balance.py.
+const OVEREAT := [0.0, 0.0, 0.0, 0.12, 0.2]
 const OFFICE_M := 130.0  # крыша офиса: башня 520 точек
 const TUT_FLIGHTS := 3
 ## «Сжать булки»: газ копится в запас (быстрее у сильных блюд), отпустил — рывок, пока запас не кончится.
@@ -281,7 +284,7 @@ func _check_progress(quiet := false) -> void:
 	for m in [[1, "dish1"], [6, "dish6"]]:
 		if known.size() >= m[0]:
 			_award(m[1], quiet)
-	for m in [["tigran", "dish_all"], ["pyshki", "dish_all_pyshki"], ["chebureki", "dish_all_chebureki"], ["hotdogs", "dish_all_hotdogs"]]:
+	for m in [["tigran", "dish_all"], ["pyshki", "dish_all_pyshki"], ["chebureki", "dish_all_chebureki"], ["hotdogs", "dish_all_hotdogs"], ["canteen", "dish_all_canteen"]]:
 		if GameData.recipes_of(m[0]).all(func(id): return known.has(id)):
 			_award(m[1], quiet)
 	if known.any(GameData.mixed_origin):
@@ -773,11 +776,13 @@ func _tray_props() -> Array:
 	var v := 0.0
 	var p := 0.0
 	var i := 0.0
-	for id in tray:
-		var it: Dictionary = GameData.ITEMS[id]
+	for k in tray.size():
+		var it := _stage_item(k)
 		v += it.v
 		p += it.p * it.v
 		i += it.i * it.v
+		if not GameData.ITEMS[tray[k]].has("re"):
+			i += OVEREAT[mini(k, OVEREAT.size() - 1)] * 10.0 * it.v  # добавка на шведском столе
 	if v <= 0.0:
 		return [0.0, 0.0, 0.0]
 	return [clamp((p / v - 6.0) / 22.0, 0.0, 1.0), clamp(v / 16.0, 0.0, 1.0), clamp(i / v / 0.5, 0.0, 1.0)]
@@ -915,20 +920,26 @@ func _render_kiosk() -> void:
 	lbl.bowl.text = " + ".join(bowl.map(func(i): return GameData.ITEMS[i].name)) if bowl.size() else "пусто"
 	for c in tray_box.get_children():
 		c.queue_free()
-	for k in 3:
+	# шведский стол: пять мест, строки ниже, чтобы влезли
+	var slots := maxi(3, _tray_max())
+	var small := slots > 3
+	for k in slots:
 		var b := Button.new()
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		UiSkin.flat(b)
+		if small:
+			b.custom_minimum_size.y = 0
 		if k < tray.size():
 			var it: Dictionary = GameData.ITEMS[tray[k]]
-			b.text = "%d. %s%s  ×" % [k + 1, it.name, " · с разгоном" if it.d > 0 else ""]
+			b.text = "%d. %s%s%s  ×" % [k + 1, it.name, " · с разгоном" if it.d > 0 else "",
+				" · добавка" if k >= 3 and not it.has("re") else ""]
 			b.tooltip_text = it.get("desc", "")
 			b.icon = _food_icon(tray[k])
-			b.add_theme_constant_override("icon_max_width", 22)
+			b.add_theme_constant_override("icon_max_width", 14 if small else 22)
 			b.pressed.connect(_remove_tray.bind(k))
 			b.set_meta("pad", "slot:%d" % k)
 		else:
-			b.text = "%d. %s" % [k + 1, "пусто" if k < _tray_max() else "сегодня нельзя"]
+			b.text = "%d. %s" % [k + 1, ("пусто · добавка" if k >= 3 else "пусто") if k < _tray_max() else "сегодня нельзя"]
 			b.disabled = true
 		tray_box.add_child(b)
 	go_btn.disabled = tray.is_empty()
@@ -1053,7 +1064,19 @@ func _remove_tray(k: int) -> void:
 # ---------------- испытание дня ----------------
 
 func _tray_max() -> int:
-	return dr.tray if daily_on else 3
+	return dr.tray if daily_on else _k().get("tray", 3)
+
+
+## Что горит на месте i подноса: компот (re) вместо себя снова разжигает прошлое блюдо, на время ×re.
+func _stage_item(i: int) -> Dictionary:
+	var it: Dictionary = GameData.ITEMS[tray[i]]
+	if it.get("re", 0.0) > 0.0 and i > 0:
+		var prev := _stage_item(i - 1).duplicate()
+		prev.v *= it.re
+		prev.d = 0.0
+		prev.re_of = it.name
+		return prev
+	return it
 
 
 ## Наступил новый день: новые условия, результат дня с нуля.
@@ -1166,6 +1189,11 @@ func _to_kiosk() -> void:
 	hx = _k().x
 	hy = 0.0
 	ang = 0.0
+	# с подноса шведского стола в обычный ларёк влезают только три блюда
+	var extra := tray.size() > _tray_max()
+	if extra:
+		tray.resize(_tray_max())
+		_save()
 	kiosk_panel.visible = true
 	hud.visible = false
 	result_panel.visible = false
@@ -1184,6 +1212,8 @@ func _to_kiosk() -> void:
 		lbl.other.text = "К " + other.to
 		switch_btn.text = ("К %s →" if other.x > _k().x else "← К %s") % other.to
 	_seller_says(_k().first if known.is_empty() else _k().tips.pick_random())
+	if extra:
+		_seller_says("Поднос у меня на %d, лишнее оставь в столовой." % _tray_max())
 	_daily_check()
 	lbl.daily.visible = stats.flights >= Daily.OPEN_AFTER or daily_on
 	_daily_texts()
@@ -1251,17 +1281,24 @@ func _launch() -> void:
 	_task_count("perfect", 1 if sweet else -1)
 	if tray == ["shawarma", "shawarma", "shawarma"]:
 		_award("three")
+	if tray.size() >= 5:
+		_award("buffet")
 	lbl.keys.text = _keys_text()
 
 
 func _set_stage(i: int) -> void:
 	f.stage = i
 	if i < tray.size():
-		var it: Dictionary = GameData.ITEMS[tray[i]]
+		var it := _stage_item(i)
 		f.delay = it.d
 		f.fuel = it.v
 		lbl.stage.text = it.name
-		if i > 0:
+		if it.has("re_of"):
+			lbl.stage.text = "%s: %s ещё раз" % [it.re_of, it.name]
+			_message("%s! Второе дыхание" % it.re_of)
+		elif i >= 3:
+			_message("%s: добавка, пузо растёт" % it.name)
+		elif i > 0:
 			_message(it.name)
 	else:
 		lbl.stage.text = "газ кончился"
@@ -1309,6 +1346,8 @@ func _finish() -> void:
 		_award("rail")
 	if f.max >= 2000.0 and tray.any(func(id): return GameData.ITEMS[id].get("j", 0.0) > 0.0):
 		_award("goal")
+	if f.max >= 4000.0 and tray.any(func(id): return GameData.ITEMS[id].has("re")):
+		_award("compote")
 	if f.max >= 600.0 and tray.all(func(id): return GameData.kiosk_of(id) == "pyshki"):
 		_award("sweet")
 	# талоны за высоту и выполненные задания
@@ -1534,7 +1573,7 @@ func replay_tutorial() -> void:
 func _update_flight(dt: float) -> void:
 	f.t += dt
 	var id: String = tray[f.stage] if f.stage < tray.size() else ""
-	var it: Dictionary = GameData.ITEMS.get(id, {})
+	var it: Dictionary = _stage_item(f.stage) if id != "" else {}
 	var squeeze := Input.is_action_pressed("squeeze")
 	var thrust := 0.0
 	var boost := 0.0
@@ -1580,6 +1619,8 @@ func _update_flight(dt: float) -> void:
 				thrust = it.p
 				f.fuel -= dt
 				f.inst += dt * it.i * 0.1 * Perks.power("belt", levels.belt)
+			if not GameData.ITEMS[id].has("re"):  # компот не еда: от добавки пузо не раздувает
+				f.inst += dt * OVEREAT[mini(f.stage, OVEREAT.size() - 1)]
 			_puff(1 if squeeze else 3, 3.0 if squeeze else 10.0, dt)
 			if f.fuel <= 0.0:
 				_set_stage(f.stage + 1)
@@ -1985,6 +2026,48 @@ func _shots() -> void:
 					await get_tree().create_timer(0.15).timeout
 					shot.call("mustard_jolt")
 			print("поднос %s: высота %d м, вбок %d м" % [t, int(f.max), int(hx - f.x0)])
+		kiosk = "tigran"
+	# Столовая №1: шведский стол на 5 блюд и компот
+	if GameData.kiosk_ready("canteen"):
+		pc.set_paused(false)
+		best = 2600.0
+		known += ["cheburek", "hotdog", "kpure", "complex", "dcompote"]
+		kiosk = "hotdogs"
+		_to_kiosk()
+		switch_btn.pressed.emit()
+		await get_tree().create_timer(2.4).timeout
+		shot.call("walk5")
+		while state == State.WALK:
+			await get_tree().process_frame
+		tray = ["complex", "kpure", "gborsch", "kgrech"]
+		_render_kiosk()
+		_add_bowl("cutlet")
+		_add_bowl("mash")
+		await get_tree().create_timer(0.3).timeout
+		shot.call("canteen")
+		book.open(known, GameData.open_kiosks(best), "canteen")
+		await get_tree().create_timer(0.2).timeout
+		shot.call("book5")
+		await _esc()
+		# три полных подноса: 3 блюда, 5 блюд (переедание) и 4 блюда + двойной компот
+		for t in [["complex", "complex", "complex"], ["complex", "complex", "complex", "complex", "complex"],
+				["complex", "complex", "complex", "complex", "dcompote"]]:
+			tray = t
+			_start_launch()
+			await get_tree().create_timer(1.9).timeout
+			f.aim = 0.6
+			aim_t = 1e9
+			_launch()
+			var re_shot := false
+			while state != State.RESULT:
+				await get_tree().process_frame
+				if t.back() == "dcompote" and not re_shot and f.stage == 4:
+					re_shot = true
+					await get_tree().create_timer(0.3).timeout
+					shot.call("compote")
+			print("поднос %s: высота %d м, вбок %d м" % [t, int(f.max), int(hx - f.x0)])
+		await get_tree().create_timer(0.3).timeout
+		shot.call("canteen_result")
 		kiosk = "tigran"
 	# космос: три бизнес-ланча строго вверх (держим Геннадия у вертикали)
 	pc.set_paused(false)

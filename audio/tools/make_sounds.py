@@ -698,8 +698,60 @@ def render_stadium(song, rng, sr=MSR):
     return norm(out - out.mean(), 0.7)
 
 
+# Столовая №1: неспешный фокстрот из радиоточки на кухне. Вибрафон, шагающий бас, щётки по малому
+# барабану и звон половника о кастрюлю в конце каждого второго такта.
+CANTEEN = {
+    "bpm": 104,
+    "lead": ["4 - 7 - 12 - 11 9", "7 - - . 4 5 7 .", "9 - 12 - 17 - 16 14", "12 - - . 9 11 12 .",
+             "14 - 12 - 11 - 9 7", "9 - 7 - 5 - 4 2", "4 - 5 7 9 - 11 -", "12 - - - . . . ."],
+    "roots": [0, 0, 5, 5, 7, 9, 2, 0],
+}
+FOX_CHORD = {0: [0, 4, 7, 11], 5: [5, 9, 12, 16], 7: [7, 11, 14, 17], 9: [9, 12, 16, 19], 2: [2, 5, 9, 12]}
+
+
+def vibes(nn, dur, vol, sr=MSR):
+    """Вибрафон: синус с обертоном, быстрый удар, долгий хвост и дрожание."""
+    n = n_of(dur + 0.3, sr)
+    t = tt(dur + 0.3, sr)
+    f = note(nn)
+    x = sine(np.full(n, f), sr) + 0.25 * sine(np.full(n, f * 4), sr) * decay(n, 0.08, sr)
+    return x * (1 + 0.25 * np.sin(2 * np.pi * 5.5 * t)) * decay(n, 0.6, sr) * vol
+
+
+def render_canteen(song, rng, sr=MSR):
+    e8 = 60.0 / song["bpm"] / 2
+    bars = len(song["lead"])
+    length = e8 * 8 * bars
+    buf = np.zeros(n_of(length + 2.0, sr))
+    for nn, st, ln in parse(song["lead"]):
+        place(buf, vibes(nn, e8 * ln, 0.3), st * e8, sr)
+    for b, r in enumerate(song["roots"]):
+        t0 = b * 8 * e8
+        ch = FOX_CHORD[r]
+        for q, c in enumerate([ch[0], ch[2], ch[1] + 12, ch[2]]):  # шагающий бас по четвертям
+            n = n_of(e8 * 1.8, sr)
+            place(buf, tri(np.full(n, note(c - 24)), sr) * env(n, 0.005, 0.2, 0.5, 0.05, sr) * 0.5, t0 + q * 2 * e8, sr)
+        for k in (2, 6):  # мягкий аккорд на вторую и четвёртую долю
+            n = n_of(e8 * 1.5, sr)
+            stab = sum(sine(np.full(n, note(c - 12)), sr) + 0.3 * tri(np.full(n, note(c - 12)), sr) for c in ch) / 4
+            place(buf, stab * env(n, 0.01, 0.2, 0.4, 0.1, sr) * 0.12, t0 + k * e8, sr)
+        for k in range(8):  # щётки
+            m = n_of(e8 * 0.9, sr)
+            place(buf, highpass(noise(m, rng), 2500, sr) * env(m, 0.02, 0.1, 0.2, 0.05, sr) * (0.05 if k % 2 else 0.08), t0 + k * e8, sr)
+        if b % 2 == 1:  # половник о кастрюлю
+            m = n_of(0.5, sr)
+            clink = sum(sine(np.full(m, 1850.0 * k), sr) * a for k, a in ((1, 1.0), (2.7, 0.5), (5.1, 0.25)))
+            place(buf, clink * decay(m, 0.12, sr) * 0.06, t0 + 7 * e8, sr)
+    n = n_of(length, sr)
+    out = buf[:n].copy()
+    out[: len(buf) - n] += buf[n:]
+    out = lowpass(out, 8000, sr, 1)
+    return norm(out - out.mean(), 0.6)  # вибрафон плотнее остальных: на 0.7 громче других ларьков
+
+
 MUSIC = {"music_kiosk": (KIOSK, "kiosk"), "music_flight": (FLIGHT, "flight"), "music_pyshki": (PYSHKI, "waltz"),
-         "music_chebureki": (CHEBUREKI, "train"), "music_hotdogs": (HOTDOGS, "stadium")}
+         "music_chebureki": (CHEBUREKI, "train"), "music_hotdogs": (HOTDOGS, "stadium"),
+         "music_canteen": (CANTEEN, "canteen")}
 LOOPS = {"gas", "squeeze", "wind"}
 
 
@@ -746,6 +798,8 @@ def main():
             x = render_train(song, rng)
         elif style == "stadium":
             x = render_stadium(song, rng)
+        elif style == "canteen":
+            x = render_canteen(song, rng)
         else:
             x = render(song, style, rng)
         tmp = os.path.join(out, name + ".tmp.wav")

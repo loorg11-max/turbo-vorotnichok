@@ -1,3 +1,5 @@
 __pycache__/
 node_modules/
 *.pyc
+# 45 МБ, пересчитывается: python3 godot/tools/balance.py
+godot/tools/balance.csv

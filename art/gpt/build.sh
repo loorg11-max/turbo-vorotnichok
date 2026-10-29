@@ -123,6 +123,23 @@ for f in raw/3[79]_*_far.png raw/38_*_street.png raw/40_*_street.png; do
   if [ -f "$f" ]; then n=$(basename "$f" .png); n=${n#*_}; px "$f" $OUT/$n.png --size 640x0 --key --crop --godot gpt/$n.png; fi
 done
 
+# Столовая №1 (41–44). Включается сама, когда есть все картинки.
+if [ -f raw/41_canteen_stall.png ]; then px raw/41_canteen_stall.png $OUT/stall_canteen.png --size 220x0 --key --crop --godot gpt/stall_canteen.png; fi
+if [ -f raw/42_zina.png ]; then
+  python3 -I $T/split_sheet.py raw/42_zina.png split/zina --grid 3x1 --main --names happy,shock,grumpy
+  for n in happy shock grumpy; do px split/zina/$n.png $OUT/zina_$n.png --size 0x64 --key --crop --godot gpt/zina_$n.png; done
+  python3 -I $T/small_sprite.py raw/42_zina.png $OUT --cols 3 --names happy,shock,grumpy --height 30 --prefix zina_small --godot gpt
+fi
+if [ -f raw/43_canteen_food.png ]; then
+  python3 -I $T/split_sheet.py raw/43_canteen_food.png split/cfood --names cutlet,mash,buckwheat,borsch,compote,kissel
+fi
+if [ -f raw/44_canteen_dishes.png ]; then
+  python3 -I $T/split_sheet.py raw/44_canteen_dishes.png split/cfood --names kpure,kgrech,dgrech,dcompote,gborsch,pborsch,kbun,kcutlet,complex
+fi
+if [ -d split/cfood ]; then
+  for f in split/cfood/*.png; do n=$(basename "$f" .png); px "$f" $OUT/food_$n.png --size 0x28 --key --crop --godot gpt/food_$n.png; done
+fi
+
 # Значки интерфейса (10d): газ и пузо у шкал, кубок достижений, медали итогов. В art/ui/.
 # Книга из 10d в маленьком размере не читается, на кнопке книги осталась шаурма.
 if [ -f raw/10d_ui_icons.png ]; then

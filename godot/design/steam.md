@@ -5,7 +5,7 @@
 ## Что уже сделано
 
 - **Код** (`scripts/steam.gd`). Работает через GodotSteam. Пока GodotSteam нет или Steam не запущен, игра просто работает как раньше. Проверено на поддельном Steam: `godot/tools/steam_test.gd`.
-- **Достижения.** Все 34 (два за границей появятся вместе с картинками 35–40), при первом запуске со Steam туда переносятся и те, что уже открыты в сохранении.
+- **Достижения.** Все 37 (два за границей появятся вместе с картинками 35–40, три столовой с картинками 41–44), при первом запуске со Steam туда переносятся и те, что уже открыты в сохранении.
 - **Таблицы рекордов.** «Высота» (`height`), «Дальность» (`distance`) и отдельная таблица на каждый день испытания (`daily_2026-10-26` и т. д.). Все три игра создаёт сама при первом результате. Испытание дня одинаковое у всех игроков, поэтому его таблица честная.
 - **Значки достижений** 256×256, открытые и серые: `art/steam/achievements/`, лист для просмотра `art/steam/achievements.png`. Делает `art/tools/steam_icons.py`. Медали взяты из значков 10d.
 - **Скриншоты** 1920×1080 из самой игры: `art/steam/screenshots/` (8 штук, Steam просит не меньше 5).
@@ -15,7 +15,7 @@
 
 1. Зарегистрироваться в Steamworks (partner.steamgames.com) и оплатить взнос за игру, $100. Steam выдаст номер игры (App ID).
 2. Прислать нам App ID. Мы впишем его в `steam.gd` (константа `APP_ID`) и соберём версию со Steam.
-3. В Steamworks, раздел «Статистика и достижения», завести 34 достижения по таблице ниже и загрузить значки из `art/steam/achievements/`: файл без приставки для открытого, `_locked` для закрытого.
+3. В Steamworks, раздел «Статистика и достижения», завести 37 достижений по таблице ниже и загрузить значки из `art/steam/achievements/`: файл без приставки для открытого, `_locked` для закрытого.
 4. Там же, раздел «Steam Cloud», включить Auto-Cloud:
    - квота: 1 файл, 1 МБ;
    - путь: корень `WinAppDataRoaming`, подпапка `TurboVorotnichok`, шаблон `save.cfg`;
@@ -65,5 +65,8 @@
 | `ACH_RAIL` | Дальний рейс | Улететь вбок на 1500 м с аджикой на подносе. | Long-Distance Train | Fly 1500 m sideways with adjika on the tray. |
 | `ACH_DISH_ALL_HOTDOGS` | Всё меню Жоры | Открыть все 9 рецептов Хот-догов. | Zhora's Full Menu | Discover all 9 hot dog stand recipes. |
 | `ACH_GOAL` | Гол в облака | Подняться на 2000 м с горчицей на подносе. | Top Corner | Reach 2000 m with mustard on the tray. |
+| `ACH_DISH_ALL_CANTEEN` | Всё меню тёти Зины | Открыть все 9 рецептов Столовой. | Auntie Zina's Whole Menu | Discover all 9 Canteen recipes. |
+| `ACH_BUFFET` | Шведский стол | Взлететь с пятью блюдами на подносе. | All You Can Eat | Take off with five dishes on the tray. |
+| `ACH_COMPOTE` | Второе дыхание | Подняться на 4000 м с компотом на подносе. | Second Wind | Reach 4000 m with compote on the tray. |
 | `ACH_PARIS` | Бонжур, обед! | Приземлиться в Париже: улететь влево за 3000 м. | Bonjour, Lunch! | Land in Paris: fly over 3000 m to the left. |
 | `ACH_CHINA` | Нихао, обед! | Приземлиться в Китае: улететь вправо за 3000 м. | Nihao, Lunch! | Land in China: fly over 3000 m to the right. |

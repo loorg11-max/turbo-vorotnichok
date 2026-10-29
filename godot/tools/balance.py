@@ -31,6 +31,7 @@ OUT = Path(sys.argv[2]) if len(sys.argv) > 2 else HERE
 GRAVITY, DRAG, DT = 9.8, 0.001, 1 / 60
 V0_PERFECT, AIM = 20.0, 0.6
 STORE_MAX, STORE_FILL, BOOST, TURN = 30.0, 0.8, 25.0, 1.9
+OVEREAT = [0.0, 0.0, 0.0, 0.12, 0.2]  # шведский стол: 4-е и 5-е блюдо раздувают пузо, в секунду
 MEDALS = [(1000, "золото"), (600, "серебро"), (250, "бронза")]
 
 
@@ -41,9 +42,10 @@ def load_data():
                          r'\s*"d":\s*([\d.]+),\s*"i":\s*(-?[\d.]+)(.*?)\}', src):
         h = re.search(r'"h":\s*(-?[\d.]+)', m[7])
         j = re.search(r'"j":\s*(-?[\d.]+)', m[7])
+        r = re.search(r'"re":\s*(-?[\d.]+)', m[7])
         items[m[1]] = {"name": m[2], "p": float(m[3]), "v": float(m[4]), "d": float(m[5]),
                        "i": float(m[6]), "base": '"base": true' in m[7], "h": float(h[1]) if h else 0.0,
-                       "j": float(j[1]) if j else 0.0}
+                       "j": float(j[1]) if j else 0.0, "re": float(r[1]) if r else 0.0}
     block = src[src.index("const RECIPES"):src.index("}", src.index("const RECIPES"))]
     recipes = {m[3]: (m[1], m[2]) for m in re.finditer(r'"(\w+)\+(\w+)":\s*"(\w+)"', block)}
     return items, recipes
@@ -65,19 +67,36 @@ def depth(items, recipes):
     return d
 
 
-def fly(items, tray, mode, seed=1):
+def stage_item(items, tray, i):
+    """Блюдо, которое горит на месте i подноса: компот (re) вместо себя снова разжигает прошлое."""
+    it = items[tray[i]]
+    if it["re"] > 0 and i > 0:
+        prev = stage_item(items, tray, i - 1)
+        return {**prev, "v": prev["v"] * it["re"], "d": 0.0}
+    return it
+
+
+def fly(items, tray, mode, seed=1, target=None):
     rng = random.Random(seed)
     a = AIM
     vx, vy = math.sin(a) * V0_PERFECT, math.cos(a) * V0_PERFECT
     ang, hx, hy, t, top = a, 0.0, 0.0, 0.0, 0.0
     stage, store, inst, pumping = 0, 0.0, 0.0, False
-    delay, fuel = items[tray[0]]["d"], items[tray[0]]["v"]
+    first = stage_item(items, tray, 0)
+    delay, fuel = first["d"], first["v"]
     lit = -1  # какое блюдо уже загорелось (для рывка j)
-    target = 0.785 if mode == "вбок" else 0.0
+    spin, spin_dir, booms = 0.0, 1.0, 0
+    if target is None:
+        target = 0.785 if mode == "вбок" else 0.0
     while True:
         t += DT
-        it = items[tray[stage]] if stage < len(tray) else None
-        ang += max(-TURN * DT, min(TURN * DT, target - ang))
+        it = stage_item(items, tray, stage) if stage < len(tray) else None
+        if spin > 0:
+            spin -= DT
+            ang += spin_dir * 11.0 * DT
+        else:
+            ang = math.atan2(math.sin(ang), math.cos(ang))
+            ang += max(-TURN * DT, min(TURN * DT, target - ang))
         burning = it is not None and delay <= 0
         # булки: жмём, пока копится газ и пузо спокойно, потом отпускаем до конца рывка
         # жмём только на подъёме: у земли и при падении копить газ некогда
@@ -105,18 +124,28 @@ def fly(items, tray, mode, seed=1):
                     thrust = it["p"]
                     fuel -= DT
                     inst += DT * it["i"] * 0.1
+                if items[tray[stage]]["re"] == 0:  # компот не еда: пузо от добавки не раздувает
+                    inst += DT * OVEREAT[min(stage, 4)]
                 if fuel <= 0:
                     stage += 1
                     if stage < len(tray):
-                        delay, fuel = items[tray[stage]]["d"], items[tray[stage]]["v"]
+                        nxt = stage_item(items, tray, stage)
+                        delay, fuel = nxt["d"], nxt["v"]
         if not squeeze and store > 0:
             boost = BOOST
             store = max(0.0, store - DT * 30)
         if not squeeze:
             inst -= DT * 0.06
         inst = min(1.0, max(0.0, inst))
-        if thrust > 0:
+        if thrust > 0 and spin <= 0:
             ang += rng.uniform(-0.5, 0.5) * inst * DT * 4
+        if inst >= 1.0:
+            # взрыв пуза: пинок в случайную сторону и кувырок, как в main.gd
+            k = rng.random() * math.tau
+            vx += math.cos(k) * 18.0
+            vy += math.sin(k) * 18.0
+            spin, spin_dir, inst = 1.6, rng.choice((-1.0, 1.0)), 0.35
+            booms += 1
         acc = thrust + boost
         sp = math.hypot(vx, vy)
         # h: блюдо толкает вбок (аджика из Чебуречной), пока горит; при сжатых булках слабее, как тяга
@@ -127,7 +156,7 @@ def fly(items, tray, mode, seed=1):
         hy += vy * DT
         top = max(top, hy)
         if hy <= 0 and t > 0.4:
-            return top, hx, t
+            return top, hx, t, booms
 
 
 def name(items, tray):
@@ -188,6 +217,27 @@ def main():
     L.append("|---|---|---|---|")
     for i, r in enumerate(sorted(rows, key=lambda r: -r["far"])[:10], 1):
         L.append(f"| {i} | {name(items, r['tray'])} | {r['far']:.0f} | {r['far_air']:.1f} |")
+
+    # шведский стол: подносы на 4–5 блюд из лучших блюд и компотов, порядок важен (компот повторяет прошлое блюдо)
+    cand = [k for k in sorted(keys, key=lambda k: -triple[k]["pump"]) if not items[k]["re"]][:4]
+    cand += [k for k in keys if items[k]["re"]]
+    buffet = []
+    for n in (4, 5):
+        for tray in itertools.product(cand, repeat=n):
+            if items[tray[0]]["re"]:
+                continue
+            pump = fly(items, tray, "булки")
+            buffet.append({"tray": tray, "n": n, "pump": pump[0], "booms": pump[3]})
+    L.append("\n## Шведский стол: подносы на 4 и 5 блюд\n")
+    L.append("Только в Столовой. 4-е и 5-е блюдо раздувают пузо, компот нет. Перебраны подносы из 4 лучших блюд "
+             "и компотов: " + ", ".join(items[k]["name"] for k in cand) + ".\n")
+    L.append("| # | Поднос | С булками, м | Взрывов |")
+    L.append("|---|---|---|---|")
+    for i, r in enumerate(sorted(buffet, key=lambda r: -r["pump"])[:10], 1):
+        L.append(f"| {i} | {name(items, r['tray'])} | {r['pump']:.0f} | {r['booms']} |")
+    for n in (4, 5):
+        r = max((r for r in buffet if r["n"] == n and not any(items[k]["re"] for k in r["tray"])), key=lambda r: r["pump"])
+        L.append(f"\nЛучший поднос на {n} без компота: {name(items, r['tray'])}, {r['pump']:.0f} м, взрывов {r['booms']}.")
 
     L.append("\n## Лучший поднос с каждым блюдом\n")
     L.append("Насколько блюдо полезно на вершине игры: лучший поднос, где оно есть, и доля от рекорда.\n")

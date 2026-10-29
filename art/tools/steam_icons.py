@@ -38,6 +38,7 @@ PICK = {
     "dish_all_hotdogs": "food:hotdog", "goal": "food:mdog",
     "space": "gpt:space_sputnik",
     "paris": "gpt:border", "china": "gpt:border",
+    "dish_all_canteen": "food:complex", "buffet": "food:kpure", "compote": "food:dcompote",
 }
 
 
