@@ -51,6 +51,17 @@ var dr := {}  # условия дня из Daily.rules
 var daily := {"day": "", "best": 0.0, "tries": 0, "tray": []}
 var daily_days := 0  # в сколько разных дней слетал в испытании
 var normal_tray: Array = []  # обычный поднос, пока включено испытание
+## Призрак лучшего полёта (ghost.gd) и дуэль с коллегой Лёшей (0.8, godot/design/duel.md).
+var ghost: Ghost
+var ghost_best := {}  # лучший записанный полёт: {"max", "pts"}
+## Дуэль: пусто — обычная игра. turn — номер полёта с нуля (чётные летит Геннадий, нечётные Лёша),
+## best — лучшая высота каждого, trays — подносы, ghosts — лучший полёт каждого для призрака соперника.
+var duel := {}
+var duel_btn: Button
+var frames := []  # листы анимаций: 0 Геннадий, 1 Лёша
+const DUEL_FLIGHTS := 3  # полётов у каждого
+const PLAYERS := ["Геннадий", "Лёша"]
+const PLAYERS_TO := ["Геннадию", "Лёше"]
 
 const WorldScript := preload("res://scripts/world.gd")
 const FONT_BODY := preload("res://fonts/Tiny5-Regular.ttf")
@@ -179,6 +190,7 @@ func _load() -> void:
 		tasks = cfg.get_value("game", "tasks", [])
 		daily.merge(cfg.get_value("game", "daily", {}), true)
 		daily_days = cfg.get_value("game", "daily_days", 0)
+	ghost_best = Ghost.load_best()
 	_fill_tasks()
 	_daily_check()
 	if not GameData.open_kiosks(best).has(kiosk):
@@ -191,7 +203,7 @@ func _save() -> void:
 	cfg.load(SAVE_PATH)
 	cfg.set_value("game", "known", known)
 	cfg.set_value("game", "best", best)
-	cfg.set_value("game", "tray", normal_tray if daily_on else tray)
+	cfg.set_value("game", "tray", normal_tray if daily_on else duel.trays[0] if _who() == 1 else tray)
 	if daily_on:
 		daily.tray = tray
 	cfg.set_value("game", "daily", daily)
@@ -344,14 +356,19 @@ func _build_world() -> void:
 	sky_layer.set_script(preload("res://scripts/sky.gd"))
 	add_child(sky_layer)
 
+	frames = [_hero_frames("res://art/gennady_sheet.png"), _hero_frames("res://art/lesha_sheet.png")]
 	hero = AnimatedSprite2D.new()
-	hero.sprite_frames = _hero_frames()
+	hero.sprite_frames = frames[0]
 	hero.offset = Vector2(0, -28)
 	add_child(hero)
 
 	fx = Node2D.new()
 	fx.set_script(preload("res://scripts/fx.gd"))
 	add_child(fx)
+	# призрак поверх газа, иначе его не видно в облачках собственного шлейфа
+	ghost = Ghost.new()
+	ghost.sprite_frames = frames[0]
+	add_child(ghost)
 
 	cam = Camera2D.new()
 	add_child(cam)
@@ -370,8 +387,8 @@ const HERO_ANIMS := [
 ]
 
 
-func _hero_frames() -> SpriteFrames:
-	var sheet: Texture2D = preload("res://art/gennady_sheet.png")
+func _hero_frames(path: String) -> SpriteFrames:
+	var sheet: Texture2D = load(path)
 	var sf := SpriteFrames.new()
 	for row in HERO_ANIMS.size():
 		var an: Array = HERO_ANIMS[row]
@@ -483,7 +500,15 @@ func _build_kiosk() -> void:
 	head.add_child(sp)
 	lbl.best = _label("", 8, Pal.CREAM)
 	lbl.best.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	head.add_child(lbl.best)
+	var corner := VBoxContainer.new()
+	corner.add_theme_constant_override("separation", 2)
+	head.add_child(corner)
+	corner.add_child(lbl.best)
+	# дуэль с коллегой: открывается вместе с испытанием дня
+	duel_btn = Button.new()
+	duel_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+	duel_btn.pressed.connect(func(): _end_duel() if duel else _start_duel())
+	corner.add_child(duel_btn)
 	lbl.tip = _label("", 8, Pal.ORANGE)
 	titles.add_child(lbl.tip)
 
@@ -588,6 +613,11 @@ func _build_hud() -> void:
 	lbl.goal.custom_minimum_size = Vector2(200, 0)
 	lbl.goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hud.add_child(lbl.goal)
+	lbl.ghost = _label("", 8, Pal.CREAM)
+	lbl.ghost.position = Vector2(420, 18)
+	lbl.ghost.custom_minimum_size = Vector2(200, 0)
+	lbl.ghost.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	hud.add_child(lbl.ghost)
 
 	lbl.thrust = _gauge(Vector2(4, 84), 32.0, Pal.GAS[1], Pal.GAS[0])
 	hud.add_child(_at(_label("ТЯГА", 8, Pal.CREAM), Vector2(3, 204)))
@@ -716,7 +746,7 @@ func _keys_text() -> String:
 		State.FLIGHT:
 			return "%s: наклон · %s: сжать булки" % [Controls.pair("left", "right"), Controls.label("squeeze")]
 		State.RESULT:
-			return "" if Controls.touch else "%s: тот же поднос" % Controls.label("again")
+			return "" if Controls.touch else "%s: %s" % [Controls.label("again"), lbl.again.text.left(1).to_lower() + lbl.again.text.substr(1)]
 	return ""
 
 
@@ -946,6 +976,8 @@ func _render_kiosk() -> void:
 	if daily_on:
 		lbl.best.text = "%s\n%s" % [Daily.GOALS[dr.goal].name,
 			"лучшее сегодня " + Daily.fmt(dr.goal, daily.best) if daily.tries else "сегодня ещё не летал"]
+	elif duel:
+		lbl.best.text = _duel_score()
 	else:
 		lbl.best.text = "рекорд %d м" % int(best)
 	meters.queue_redraw()
@@ -1148,6 +1180,106 @@ func _daily_result(r: Dictionary) -> String:
 	return text
 
 
+# ---------------- дуэль и призрак ----------------
+
+## Кто сейчас летит: 0 Геннадий, 1 Лёша. Вне дуэли всегда Геннадий.
+func _who() -> int:
+	return duel.turn % 2 if duel and duel.turn < DUEL_FLIGHTS * 2 else 0
+
+
+## Дуэль с начала: у Лёши поднос как у Геннадия, первым летит Геннадий.
+func _start_duel() -> void:
+	if daily_on:
+		_set_daily(false)
+	var home: Array = tray if not duel else duel.trays[0]
+	duel = {"turn": 0, "best": [0.0, 0.0], "trays": [home.duplicate(), home.duplicate()], "ghosts": [{}, {}]}
+	tray = duel.trays[0].duplicate()
+	bowl.clear()
+	snd.play("tray")
+	_dress()
+	_to_kiosk()
+	_seller_says("Дуэль! Кто выше улетит, тот лучший сотрудник месяца.")
+
+
+## Выйти из дуэли: Геннадий со своим подносом.
+func _end_duel() -> void:
+	if not duel:
+		return
+	tray = duel.trays[0] if _who() == 1 else tray
+	duel = {}
+	bowl.clear()
+	_dress()
+	_save()
+	_to_kiosk()
+
+
+## Лист анимаций того, кто сейчас летит.
+func _dress() -> void:
+	var sf: SpriteFrames = frames[_who()]
+	if hero.sprite_frames != sf:
+		var an := hero.animation
+		hero.sprite_frames = sf
+		hero.play(an)
+
+
+## Счёт дуэли для угла ларька и итогов.
+func _duel_score() -> String:
+	return "%s %d м\n%s %d м" % [PLAYERS[0], int(duel.best[0]), PLAYERS[1], int(duel.best[1])]
+
+
+## Заголовок ларька и кнопка дуэли.
+func _duel_texts() -> void:
+	duel_btn.visible = stats.flights >= Daily.OPEN_AFTER and not daily_on
+	duel_btn.text = "Выйти из дуэли" if duel else "Дуэль с Лёшей"
+	if duel:
+		var w := _who()
+		lbl.title.text = "ДУЭЛЬ: ЛЕТИТ %s" % PLAYERS[w].to_upper()
+		lbl.tip.text = "Полёт %d из %d. У каждого свой поднос, побеждает лучшая высота." % [int(duel.turn / 2) + 1, DUEL_FLIGHTS]
+
+
+## Какой полёт показывает призрак: в дуэли лучший полёт соперника, иначе свой лучший; в испытании дня никакого.
+func _ghost_pick() -> void:
+	if duel:
+		var o := 1 - _who()
+		ghost.sprite_frames = frames[o]
+		ghost.replay(duel.ghosts[o], PLAYERS[o])
+	elif daily_on:
+		ghost.replay({}, "")
+	else:
+		ghost.sprite_frames = frames[0]
+		ghost.replay(ghost_best, "рекорд")
+
+
+## Полёт закончился: в дуэли записать счёт и передать ход, вне дуэли запомнить лучший полёт для призрака.
+## Возвращает строку для итогов.
+func _duel_result() -> String:
+	var rec := ghost.result(f.max)
+	if not duel:
+		if not daily_on and f.max > ghost_best.get("max", 0.0) and rec.pts.size() > 1:
+			ghost_best = rec
+			Ghost.save_best(rec)
+		return ""
+	var w := _who()
+	if f.max > duel.best[w]:
+		duel.best[w] = f.max
+		duel.ghosts[w] = rec
+	duel.trays[w] = tray.duplicate()
+	duel.turn += 1
+	if duel.turn < DUEL_FLIGHTS * 2:
+		tray = duel.trays[_who()].duplicate()
+		return "Дуэль: %s %d м, %s %d м. Следующим летит %s." % [PLAYERS[0], int(duel.best[0]), PLAYERS[1], int(duel.best[1]), PLAYERS[_who()]]
+	tray = duel.trays[0].duplicate()
+	var win := 0 if duel.best[0] > duel.best[1] else 1 if duel.best[1] > duel.best[0] else -1
+	if win == 0:
+		_award("duel")
+	return "Дуэль окончена: %s %d м, %s %d м. %s" % [PLAYERS[0], int(duel.best[0]), PLAYERS[1], int(duel.best[1]),
+		"Ничья: на доске почёта оба." if win < 0 else "Лучший сотрудник месяца: %s!" % PLAYERS[win]]
+
+
+func _duel_over() -> bool:
+	return duel and duel.turn >= DUEL_FLIGHTS * 2
+
+
 # ---------------- состояния ----------------
 
 ## Геннадий выходит из офиса и идёт к ларьку, где обедал в прошлый раз.
@@ -1171,6 +1303,7 @@ func _walk_to(k: String) -> void:
 	hero_bubble.hide_now()
 	seller_bubble.hide_now()
 	seller_bubble.anchor = world.says(kiosk)
+	_dress()
 	hero.play("walk")
 	hero.flip_h = walk_to < hx
 	_seller("happy")
@@ -1198,6 +1331,9 @@ func _to_kiosk() -> void:
 	hud.visible = false
 	result_panel.visible = false
 	fx.aim_visible = false
+	if _duel_over():
+		duel = {}
+	_dress()
 	hero.play("idle")
 	_seller("happy")
 	snd.stop_loops()
@@ -1215,8 +1351,9 @@ func _to_kiosk() -> void:
 	if extra:
 		_seller_says("Поднос у меня на %d, лишнее оставь в столовой." % _tray_max())
 	_daily_check()
-	lbl.daily.visible = stats.flights >= Daily.OPEN_AFTER or daily_on
+	lbl.daily.visible = (stats.flights >= Daily.OPEN_AFTER or daily_on) and not duel
 	_daily_texts()
+	_duel_texts()
 	_render_kiosk()
 	_pad_focus.call_deferred()
 
@@ -1240,6 +1377,10 @@ func _start_launch() -> void:
 	aim_t = 0.0
 	fx.particles.clear()
 	eat_t = 1.6
+	if _duel_over():
+		_start_duel()
+		return
+	_dress()
 	f = {"t": 0.0, "stage": 0, "delay": 0.0, "fuel": 0.0, "store": 0.0, "inst": 0.0, "max": 0.0, "landed": 0.0, "won": false, "aim": 0.0,
 		"prev_best": best, "pigeons": 0, "fulls": 0, "rec": false, "air": 0.0, "booms": 0, "full": false, "boosting": false, "gurgled": false, "tilt": 0.0, "x0": hx,
 		"thermal": false, "pyshki": 0, "sweet": 0.0, "lit": -1,
@@ -1273,6 +1414,8 @@ func _launch() -> void:
 	hero.scale = Vector2(0.8, 1.25)
 	_shake(3.0)
 	_set_stage(0)
+	ghost.start()
+	_ghost_pick()
 	_message("Идеальный старт! +10%" if sweet else "Поехали!")
 	_seller("shock")
 	seller_bubble.say(_k().send_off.pick_random(), 1.4)
@@ -1360,6 +1503,7 @@ func _finish() -> void:
 		if not Perks.counted(t.i) and Perks.check(t.i, r):
 			done_lines.append(_task_done(t))
 	var daily_line := _daily_result(r) if daily_on else ""
+	var duel_line := _duel_result()
 	_save()
 	_render_counts()
 	lbl.r_talons.text = "Талоны: +%d за высоту, всего %d" % [earned, talons]
@@ -1398,12 +1542,25 @@ func _finish() -> void:
 		news_lines.append("Новая открытка в альбоме: «%s»" % Postcards.caption(c))
 	if daily_line != "":
 		news_lines.push_front(daily_line)
+	if duel_line != "":
+		news_lines.push_front(duel_line)
 	lbl.r_news.text = "\n".join(news_lines)
 	lbl.r_news.visible = not news_lines.is_empty()
 	var open := GameData.open_kiosks(best)
 	lbl.other.visible = open.size() > 1
 	if open.size() > 1:
 		lbl.other.text = "К " + GameData.KIOSKS[_other_kiosk()].to
+	# в дуэли: «Летит Лёша» вместо «Тот же поднос», после последнего полёта «Реванш» и выход
+	lbl.again.text = "Тот же поднос"
+	lbl.back.text = "К " + _k().to
+	if _duel_over():
+		var win := 0 if duel.best[0] > duel.best[1] else 1 if duel.best[1] > duel.best[0] else -1
+		lbl.r_title.text = "НИЧЬЯ!" if win < 0 else "%s ПОБЕДИЛ!" % PLAYERS[win].to_upper()
+		lbl.again.text = "Реванш"
+		lbl.back.text = "Обычный обед"
+		lbl.other.visible = false
+	elif duel:
+		lbl.again.text = "Летит %s" % PLAYERS[_who()]
 	lbl.keys.text = ""
 	lbl.r_hint.text = _keys_text()
 	result_panel.reset_size()
@@ -1450,6 +1607,7 @@ func _process(dt: float) -> void:
 		fx.aim_origin = Vector2(hx * PX, -hy * PX - 24)
 	elif state == State.FLIGHT:
 		_update_flight(dt)
+	_ghost_hud()
 
 	if msg_t > 0.0:
 		msg_t -= dt
@@ -1572,6 +1730,7 @@ func replay_tutorial() -> void:
 
 func _update_flight(dt: float) -> void:
 	f.t += dt
+	ghost.record(dt, hx - f.x0, hy, ang, hero.animation, hero.frame)
 	var id: String = tray[f.stage] if f.stage < tray.size() else ""
 	var it: Dictionary = _stage_item(f.stage) if id != "" else {}
 	var squeeze := Input.is_action_pressed("squeeze")
@@ -1801,6 +1960,27 @@ func _update_flight(dt: float) -> void:
 	lbl.belly.value = f.inst
 
 
+## Призрак рядом с Геннадием и строка под целью: насколько он выше или ниже в этот же миг полёта.
+func _ghost_hud() -> void:
+	var gy := ghost.show_at(f.t, f.x0, PX) if state == State.FLIGHT and f.get("landed", 0.0) <= 0.0 else -1.0
+	if state != State.FLIGHT:
+		ghost.visible = false
+	if gy < 0.0:
+		lbl.ghost.text = ""
+		return
+	var who: String = ghost.run.who
+	var d := int(hy - gy)
+	if absi(d) < 5:
+		lbl.ghost.text = "%s: вровень" % who.capitalize()
+		lbl.ghost.add_theme_color_override("font_color", Pal.CREAM)
+	elif d > 0:
+		lbl.ghost.text = "%s ниже на %d м" % [who.capitalize(), d]
+		lbl.ghost.add_theme_color_override("font_color", Pal.GAS[0])
+	else:
+		lbl.ghost.text = "%s выше на %d м" % [who.capitalize(), -d]
+		lbl.ghost.add_theme_color_override("font_color", Color("#ff7a5c"))
+
+
 ## Газ звучит голосом текущего блюда, при «сжатых булках» вместо него писк, ветер растёт со скоростью.
 func _flight_sound(it: Dictionary, id: String, thrust: float, squeeze: bool, speed: float) -> void:
 	if f.landed > 0.0:
@@ -1870,6 +2050,13 @@ func _shots() -> void:
 	tray = []
 	best = 0.0
 	await get_tree().create_timer(2.0).timeout
+	# -- --shot duel: только дуэль и призрак, чтобы не ждать весь прогон
+	if "duel" in OS.get_cmdline_user_args():
+		stats.flights = 10
+		known = ["shawarma", "double"]
+		await _shots_duel(shot)
+		quit_game()
+		return
 	shot.call("walk")
 	# обучение: новичок в ларьке
 	_to_kiosk()
@@ -2069,6 +2256,7 @@ func _shots() -> void:
 		await get_tree().create_timer(0.3).timeout
 		shot.call("canteen_result")
 		kiosk = "tigran"
+	await _shots_duel(shot)
 	# космос: три бизнес-ланча строго вверх (держим Геннадия у вертикали)
 	pc.set_paused(false)
 	best = 1200.0
@@ -2197,3 +2385,49 @@ func _shots() -> void:
 	_set_daily(false)
 	print("user dir: ", OS.get_user_data_dir())
 	quit_game()
+
+
+## Дуэль с Лёшей для прогона --shot: по три полёта, призрак соперника, итоги и выход.
+func _shots_duel(shot: Callable) -> void:
+	pc.set_paused(false)
+	kiosk = "tigran"
+	tray = ["shawarma", "double"]
+	_to_kiosk()
+	_start_duel()
+	tray = ["double", "double"]
+	await get_tree().create_timer(0.3).timeout
+	shot.call("duel_kiosk")
+	for n in DUEL_FLIGHTS * 2:
+		_start_launch()
+		await get_tree().create_timer(1.9).timeout
+		f.aim = 0.6
+		aim_t = 1e9
+		_launch()
+		var ghost_shot := false
+		while state != State.RESULT:
+			await get_tree().process_frame
+			if n == 1 and not ghost_shot and f.t > 2.5:
+				ghost_shot = true
+				shot.call("duel_ghost")
+		print("дуэль, полёт %d: высота %d м" % [n + 1, int(f.max)])
+		await get_tree().create_timer(0.3).timeout
+		if n == 0:
+			shot.call("duel_turn")
+	shot.call("duel_result")
+	lbl.back.pressed.emit()
+	await get_tree().create_timer(0.3).timeout
+	shot.call("duel_after")
+	# обычный полёт: призрак лучшего полёта с подписью «рекорд»
+	tray = ["shawarma", "double"]
+	_start_launch()
+	await get_tree().create_timer(1.9).timeout
+	f.aim = 0.6
+	aim_t = 1e9
+	_launch()
+	var rec_shot := false
+	while state != State.RESULT:
+		await get_tree().process_frame
+		if not rec_shot and f.t > 3.0:
+			rec_shot = true
+			shot.call("ghost_record")
+	_to_kiosk()

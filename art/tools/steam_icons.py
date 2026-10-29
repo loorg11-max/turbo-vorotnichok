@@ -24,7 +24,7 @@ GOLD = (255, 216, 74)
 GRAY = (107, 104, 120)
 GAS = [(208, 237, 78), (162, 213, 118), (126, 194, 107), (63, 122, 58)]
 
-# достижение: что нарисовать. hero:строка,кадр — кадр Геннадия; food:id; gpt:файл; ui:файл из art/ui; medal:цвета; cup
+# достижение: что нарисовать. hero:строка,кадр — кадр Геннадия; lesha:строка,кадр — коллеги Лёши; food:id; gpt:файл; ui:файл из art/ui; medal:цвета; cup
 PICK = {
     "first": "hero:4,0", "dud": "hero:6,1", "office": "hero:3,2",
     "bronze": "ui:icon_medal_bronze", "silver": "ui:icon_medal_silver", "clouds": "gpt:cloud_small",
@@ -38,6 +38,7 @@ PICK = {
     "dish_all_hotdogs": "food:hotdog", "goal": "food:mdog",
     "space": "gpt:space_sputnik",
     "paris": "gpt:border", "china": "gpt:border",
+    "duel": "lesha:3,2",
     "dish_all_canteen": "food:complex", "buffet": "food:kpure", "compote": "food:dcompote",
 }
 
@@ -52,8 +53,8 @@ def gpt(name):
     return Image.open(p).convert("RGBA") if os.path.exists(p) else None
 
 
-def hero(row, col):
-    sheet = Image.open(os.path.join(GAME, "art", "gennady_sheet.png")).convert("RGBA")
+def hero(row, col, who="gennady"):
+    sheet = Image.open(os.path.join(GAME, "art", who + "_sheet.png")).convert("RGBA")
     fr = sheet.crop((col * 64, row * 64, col * 64 + 64, row * 64 + 64))
     return fr.crop(fr.getbbox())
 
@@ -118,6 +119,9 @@ def picture(kind):
     if kind.startswith("hero:"):
         r, c = map(int, kind[5:].split(","))
         return hero(r, c)
+    if kind.startswith("lesha:"):
+        r, c = map(int, kind[6:].split(","))
+        return hero(r, c, "lesha")
     if kind.startswith("food:"):
         return gpt("food_" + kind[5:])
     if kind.startswith("gpt:"):
