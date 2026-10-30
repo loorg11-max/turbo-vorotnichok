@@ -120,6 +120,7 @@ static func messages(s: Dictionary) -> Array:
 			out.append(["boss", "Премия: %d талонов." % c.talons])
 	if s.get("final", false):
 		out.append(["boss", "Обед окончен. Вы повышены!"])
+		out.append(["boss", "Костюм директора ждёт вас в гардеробе."])
 	return out
 
 

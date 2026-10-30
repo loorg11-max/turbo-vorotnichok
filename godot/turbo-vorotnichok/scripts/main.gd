@@ -66,6 +66,11 @@ const PLAYERS_TO := ["Геннадию", "Лёше"]
 var story := {"ch": 0, "done": [], "seen": 0, "final": false}
 var phone: Control  # переписка с начальником (phone.gd)
 var phone_btn: Button
+## Наряды Геннадия (outfits.gd): купленные за талоны и надетый ("" — обычная рубашка).
+var outfits_owned: Array = []
+var outfit := ""
+var wardrobe: Control  # гардероб (wardrobe.gd)
+var wardrobe_btn: Button
 var finale: Control  # разговор в кабинете и титры (finale.gd)
 ## Окно кабинета начальника на башне офиса (world.gd ставит офис в −330 точек), метры.
 const BOSS_WINDOW := Vector2(-42.5, 75.0)
@@ -199,6 +204,10 @@ func _load() -> void:
 		daily.merge(cfg.get_value("game", "daily", {}), true)
 		daily_days = cfg.get_value("game", "daily_days", 0)
 		story.merge(cfg.get_value("game", "story", {}), true)
+		outfits_owned = cfg.get_value("game", "outfits", [])
+		outfit = cfg.get_value("game", "outfit", "")
+	if not Outfits.LIST.has(outfit):
+		outfit = ""
 	ghost_best = Ghost.load_best()
 	_fill_tasks()
 	_daily_check()
@@ -227,6 +236,8 @@ func _save() -> void:
 	cfg.set_value("game", "task_next", task_next)
 	cfg.set_value("game", "tasks", tasks)
 	cfg.set_value("game", "story", story)
+	cfg.set_value("game", "outfits", outfits_owned)
+	cfg.set_value("game", "outfit", outfit)
 	cfg.set_value("game", "saved_at", int(Time.get_unix_time_from_system()))
 	cfg.save(SAVE_PATH)
 	yandex.push(SAVE_PATH)
@@ -289,12 +300,68 @@ func _buy(id: String) -> void:
 	shop.open(talons, levels, tasks)
 
 
+func _open_wardrobe() -> void:
+	wardrobe.open(talons, outfits_owned, awards.got, story.final, outfit)
+
+
+## Купить наряд за талоны и сразу надеть.
+func _buy_outfit(id: String) -> void:
+	var cost: int = Outfits.LIST[id].get("price", -1)
+	if cost < 0 or talons < cost or outfits_owned.has(id):
+		return
+	talons -= cost
+	outfits_owned.append(id)
+	snd.play("medal")
+	_wear(id)
+	wardrobe.cheer()
+	_check_outfits()
+
+
+## Надеть наряд: Геннадий в ларьке поворачивается на месте и выходит уже в нём.
+func _wear(id: String) -> void:
+	if not Outfits.has(id, outfits_owned, awards.got, story.final):
+		return
+	outfit = id
+	var old: SpriteFrames = frames[0]
+	frames[0] = _hero_frames(Outfits.sheet(id))
+	for s in [hero, ghost]:
+		if s.sprite_frames == old:
+			var an: StringName = s.animation
+			var fr: int = s.frame
+			s.sprite_frames = frames[0]
+			s.animation = an
+			s.frame = fr
+	_twirl()
+	_save()
+	_render_counts()
+	if wardrobe.visible:
+		_open_wardrobe()
+
+
+## Поворот на месте, как в примерочной.
+func _twirl() -> void:
+	var sx := hero.scale.x
+	var t := create_tween()
+	t.tween_property(hero, "scale:x", 0.0, 0.12)
+	t.tween_property(hero, "scale:x", -sx, 0.12)
+	t.tween_property(hero, "scale:x", 0.0, 0.12)
+	t.tween_property(hero, "scale:x", sx, 0.12)
+
+
+## Модник: все шесть нарядов.
+func _check_outfits(quiet := false) -> void:
+	if Outfits.got(outfits_owned, awards.got, story.final).size() == Outfits.ORDER.size() - 1:
+		_award("fashion", quiet)
+
+
 ## Достижение: всплывашка и сохранение, если оно новое.
 func _award(id: String, quiet := false) -> void:
 	steam.achieve(id)
 	if awards.unlock(id, quiet):
 		_save()
 		_render_counts()
+		if id != "fashion":
+			_check_outfits(quiet)
 
 
 ## Достижения, которые следуют из рекорда, счётчиков и открытых рецептов. quiet: при запуске,
@@ -315,6 +382,7 @@ func _check_progress(quiet := false) -> void:
 		_award("mush10", quiet)
 	if stats.flights >= 25:
 		_award("regular", quiet)
+	_check_outfits(quiet)
 	# поручения про рецепты выполняются прямо в ларьке
 	if not quiet and state != State.FLIGHT and state != State.RESULT:
 		var lines := _story_update({})
@@ -374,7 +442,7 @@ func _build_world() -> void:
 	sky_layer.set_script(preload("res://scripts/sky.gd"))
 	add_child(sky_layer)
 
-	frames = [_hero_frames("res://art/gennady_sheet.png"), _hero_frames("res://art/lesha_sheet.png")]
+	frames = [_hero_frames(Outfits.sheet(outfit)), _hero_frames("res://art/lesha_sheet.png")]
 	hero = AnimatedSprite2D.new()
 	hero.sprite_frames = frames[0]
 	hero.offset = Vector2(0, -28)
@@ -488,12 +556,17 @@ func _build_ui() -> void:
 	phone.set_script(preload("res://scripts/phone.gd"))
 	phone.closed.connect(_render_counts)
 	ui.add_child(phone)
+	wardrobe = Control.new()
+	wardrobe.set_script(preload("res://scripts/wardrobe.gd"))
+	wardrobe.buy.connect(_buy_outfit)
+	wardrobe.wear.connect(_wear)
+	ui.add_child(wardrobe)
 	finale = Control.new()
 	finale.set_script(preload("res://scripts/finale.gd"))
 	finale.finished.connect(_finale_done)
 	ui.add_child(finale)
 	# окно поверх ларька: геймпад ходит только по нему, после закрытия снова по ларьку
-	for o in [book, shop, awards.screen, postcards, phone]:
+	for o in [book, shop, awards.screen, postcards, phone, wardrobe]:
 		o.visibility_changed.connect(_overlay_changed.bind(o))
 
 
@@ -544,6 +617,11 @@ func _build_kiosk() -> void:
 	btns.alignment = BoxContainer.ALIGNMENT_END
 	btns.add_theme_constant_override("separation", 4)
 	corner.add_child(btns)
+	# гардероб: после первого полёта, как и телефон
+	wardrobe_btn = Button.new()
+	wardrobe_btn.text = "Гардероб"
+	wardrobe_btn.pressed.connect(_open_wardrobe)
+	btns.add_child(wardrobe_btn)
 	# телефон с поручениями начальника: после первого полёта
 	phone_btn = Button.new()
 	phone_btn.pressed.connect(_open_phone)
@@ -619,7 +697,7 @@ func _build_kiosk() -> void:
 	lbl.daily.pressed.connect(func(): _set_daily(not daily_on))
 	foot.add_child(lbl.daily)
 	cards_btn = Button.new()
-	cards_btn.pressed.connect(func(): postcards.open(awards.got))
+	cards_btn.pressed.connect(func(): postcards.open(awards.got, outfit))
 	foot.add_child(cards_btn)
 	var sp2 := Control.new()
 	sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -808,7 +886,7 @@ func refresh_controls() -> void:
 
 
 func _overlay_changed(o: Control) -> void:
-	var any: bool = book.visible or shop.visible or awards.screen.visible or postcards.visible or phone.visible
+	var any: bool = book.visible or shop.visible or awards.screen.visible or postcards.visible or phone.visible or wardrobe.visible
 	for b in kiosk_panel.find_children("*", "BaseButton", true, false):
 		b.focus_mode = Control.FOCUS_NONE if any else Control.FOCUS_ALL
 	if o.visible and o == awards.screen:
@@ -820,7 +898,7 @@ func _overlay_changed(o: Control) -> void:
 func _pad_focus() -> void:
 	if not Controls.pad or get_tree().paused:
 		return
-	for o in [shop, book, postcards, phone]:
+	for o in [shop, book, postcards, phone, wardrobe]:
 		if o.visible:
 			var bs: Array = o.find_children("*", "Button", true, false).filter(func(b): return b.is_visible_in_tree() and not b.disabled)
 			if bs.size():
@@ -892,6 +970,7 @@ func _render_counts() -> void:
 	phone_btn.text = "Телефон" + (" (%d)" % n if n > 0 else "")
 	phone_btn.add_theme_color_override("font_color", Pal.NEON if n > 0 else Pal.CREAM)
 	phone_btn.visible = stats.flights >= 1
+	wardrobe_btn.visible = stats.flights >= 1 and not duel
 	lbl.rank.text = Story.title(story.ch)
 
 
@@ -924,6 +1003,9 @@ func close_overlay() -> bool:
 		return true
 	if postcards.visible:
 		postcards.visible = false
+		return true
+	if wardrobe.visible:
+		wardrobe.visible = false
 		return true
 	return false
 
@@ -1413,6 +1495,7 @@ func _finale_done() -> void:
 	story.seen = Story.messages(story).size()
 	_save()
 	_render_counts()
+	_check_outfits()
 	_walk_in()
 	_say("Турбо-директор идёт обедать!", 2.4)
 
@@ -1525,7 +1608,8 @@ func _start_launch() -> void:
 		"prev_best": best, "pigeons": 0, "fulls": 0, "rec": false, "air": 0.0, "booms": 0, "full": false, "boosting": false, "gurgled": false, "tilt": 0.0, "x0": hx,
 		"thermal": false, "pyshki": 0, "sweet": 0.0, "lit": -1,
 		"space": false, "space_t": 0.0, "space_said": [],
-		"abroad": "", "sea_seen": false, "land_at": "home", "local": false, "cards": Postcards.got(awards.got)}
+		"abroad": "", "sea_seen": false, "land_at": "home", "local": false, "cards": Postcards.got(awards.got),
+		"outfits": Outfits.got(outfits_owned, awards.got, story.final)}
 	Engine.time_scale = 1.0
 	slow_t = 0.0
 	hero.play("eat")
@@ -1682,6 +1766,8 @@ func _finish() -> void:
 	var cards: Array = Postcards.got(awards.got)
 	for c in cards.filter(func(c): return not f.cards.has(c)):
 		news_lines.append("Новая открытка в альбоме: «%s»" % Postcards.caption(c))
+	for o in Outfits.got(outfits_owned, awards.got, story.final).filter(func(o): return not f.outfits.has(o)):
+		news_lines.append("Новый наряд в гардеробе: «%s»" % Outfits.title(o))
 	if daily_line != "":
 		news_lines.push_front(daily_line)
 	if duel_line != "":
@@ -1822,7 +1908,7 @@ func _tutorial() -> void:
 
 
 func _tut_want() -> Array:
-	if book.visible or awards.screen.visible or postcards.visible or phone.visible or state == State.FINALE:
+	if book.visible or awards.screen.visible or postcards.visible or phone.visible or wardrobe.visible or state == State.FINALE:
 		return []
 	# про новый ларёк скажем и опытному игроку
 	if state == State.KIOSK and switch_btn.visible and not tut.has("kiosk2"):
@@ -2220,6 +2306,13 @@ func _shots() -> void:
 		quit_game()
 		return
 	# -- --shot duel: только дуэль и призрак, чтобы не ждать весь прогон
+	if "wardrobe" in OS.get_cmdline_user_args():
+		stats.flights = 10
+		known = ["shawarma", "double"]
+		best = 1200.0
+		await _shots_wardrobe(shot)
+		quit_game()
+		return
 	if "duel" in OS.get_cmdline_user_args():
 		stats.flights = 10
 		known = ["shawarma", "double"]
@@ -2427,6 +2520,7 @@ func _shots() -> void:
 		kiosk = "tigran"
 	await _shots_duel(shot)
 	await _shots_story(shot)
+	await _shots_wardrobe(shot)
 	# космос: три бизнес-ланча строго вверх (держим Геннадия у вертикали)
 	pc.set_paused(false)
 	best = 1200.0
@@ -2473,7 +2567,7 @@ func _shots() -> void:
 	_to_kiosk()
 	await get_tree().create_timer(0.3).timeout
 	shot.call("kiosk_cards")
-	postcards.open(awards.got)
+	postcards.open(awards.got, outfit)
 	await get_tree().create_timer(0.3).timeout
 	shot.call("postcards")
 	await _esc()
@@ -2562,6 +2656,67 @@ func _shots_abroad(shot: Callable) -> void:
 		shot.call("sea_result")
 		print("море: приземлился: %s" % f.land_at)
 		assert(f.land_at == "sea", "должен был плюхнуться в море")
+## Гардероб: покупка, примерка, полёт в наряде, особые наряды и «Модник». Отдельно: `-- --shot wardrobe`.
+func _shots_wardrobe(shot: Callable) -> void:
+	var was := {"talons": talons, "owned": outfits_owned.duplicate(), "final": story.final}
+	talons = 100
+	outfits_owned = []
+	_wear("")
+	_to_kiosk()
+	await get_tree().create_timer(0.5).timeout
+	shot.call("wardrobe_kiosk")
+	_open_wardrobe()
+	await get_tree().create_timer(0.3).timeout
+	shot.call("wardrobe")
+	wardrobe.try_on("chef")
+	await get_tree().create_timer(0.2).timeout
+	shot.call("wardrobe_spin")
+	await get_tree().create_timer(0.6).timeout
+	shot.call("wardrobe_chef")
+	_buy_outfit("fan")
+	await get_tree().create_timer(0.3).timeout
+	shot.call("wardrobe_bought")
+	assert(outfit == "fan" and talons == 75, "наряд куплен и надет")
+	wardrobe.visible = false
+	await get_tree().create_timer(0.6).timeout
+	shot.call("kiosk_fan")
+	tray = ["shawarma", "double"]
+	_start_launch()
+	await get_tree().create_timer(1.9).timeout
+	f.aim = 0.6
+	aim_t = 1e9
+	_launch()
+	await get_tree().create_timer(2.5).timeout
+	shot.call("fan_fly")
+	while state != State.RESULT:
+		await get_tree().process_frame
+	await get_tree().create_timer(0.3).timeout
+	# особые наряды: за космос, Париж и финал; с купленными это все шесть, «Модник»
+	_buy_outfit("friday")
+	_buy_outfit("chef")
+	for a in ["space", "paris"]:
+		awards.unlock(a, true)
+	story.final = true
+	_check_outfits()
+	assert(awards.got.has("fashion"), "все шесть нарядов дают «Модника»")
+	_to_kiosk()
+	await get_tree().create_timer(0.3).timeout
+	_open_wardrobe()
+	wardrobe.try_on("cosmo", false)
+	await get_tree().create_timer(0.3).timeout
+	shot.call("wardrobe_all")
+	_wear("director")
+	await get_tree().create_timer(0.6).timeout
+	wardrobe.visible = false
+	postcards.open(awards.got, outfit)
+	await get_tree().create_timer(0.3).timeout
+	shot.call("postcards_outfit")
+	postcards.visible = false
+	talons = was.talons
+	outfits_owned = was.owned
+	story.final = was.final
+	_wear("")
+
 
 func _shots_duel(shot: Callable) -> void:
 	pc.set_paused(false)

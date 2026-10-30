@@ -38,7 +38,7 @@ PICK = {
     "dish_all_hotdogs": "food:hotdog", "goal": "food:mdog",
     "space": "gpt:space_sputnik",
     "paris": "gpt:border", "china": "gpt:border",
-    "duel": "lesha:3,2",
+    "duel": "lesha:3,2", "fashion": "sheet:outfit_director:3,2",
     "dish_all_canteen": "food:complex", "buffet": "food:kpure", "compote": "food:dcompote",
 }
 
@@ -122,6 +122,10 @@ def picture(kind):
     if kind.startswith("lesha:"):
         r, c = map(int, kind[6:].split(","))
         return hero(r, c, "lesha")
+    if kind.startswith("sheet:"):  # sheet:лист:строка,кадр — кадр из листа наряда
+        who, rc = kind[6:].split(":")
+        r, c = map(int, rc.split(","))
+        return hero(r, c, who[:-6] if who.endswith("_sheet") else who)
     if kind.startswith("food:"):
         return gpt("food_" + kind[5:])
     if kind.startswith("gpt:"):

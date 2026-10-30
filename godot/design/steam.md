@@ -5,7 +5,7 @@
 ## Что уже сделано
 
 - **Код** (`scripts/steam.gd`). Работает через GodotSteam. Пока GodotSteam нет или Steam не запущен, игра просто работает как раньше. Проверено на поддельном Steam: `godot/tools/steam_test.gd`.
-- **Достижения.** Все 38 (два за границей появятся вместе с картинками 35–40, три столовой с картинками 41–44), при первом запуске со Steam туда переносятся и те, что уже открыты в сохранении.
+- **Достижения.** Все 39, при первом запуске со Steam туда переносятся и те, что уже открыты в сохранении.
 - **Таблицы рекордов.** «Высота» (`height`), «Дальность» (`distance`) и отдельная таблица на каждый день испытания (`daily_2026-10-26` и т. д.). Все три игра создаёт сама при первом результате. Испытание дня одинаковое у всех игроков, поэтому его таблица честная.
 - **Значки достижений** 256×256, открытые и серые: `art/steam/achievements/`, лист для просмотра `art/steam/achievements.png`. Делает `art/tools/steam_icons.py`. Медали взяты из значков 10d.
 - **Скриншоты** 1920×1080 из самой игры: `art/steam/screenshots/` (8 штук, Steam просит не меньше 5).
@@ -15,7 +15,7 @@
 
 1. Зарегистрироваться в Steamworks (partner.steamgames.com) и оплатить взнос за игру, $100. Steam выдаст номер игры (App ID).
 2. Прислать нам App ID. Мы впишем его в `steam.gd` (константа `APP_ID`) и соберём версию со Steam.
-3. В Steamworks, раздел «Статистика и достижения», завести 38 достижений по таблице ниже и загрузить значки из `art/steam/achievements/`: файл без приставки для открытого, `_locked` для закрытого.
+3. В Steamworks, раздел «Статистика и достижения», завести 39 достижений по таблице ниже и загрузить значки из `art/steam/achievements/`: файл без приставки для открытого, `_locked` для закрытого.
 4. Там же, раздел «Steam Cloud», включить Auto-Cloud:
    - квота: 1 файл, 1 МБ;
    - путь: корень `WinAppDataRoaming`, подпапка `TurboVorotnichok`, шаблон `save.cfg`;
@@ -58,6 +58,7 @@
 | `ACH_DAILY` | Испытание дня | Слетать в испытании дня. | Daily Challenge | Fly in the daily challenge. |
 | `ACH_DAILY5` | Каждый день обед | Слетать в испытании дня в 5 разных дней. | Lunch Every Day | Fly in the daily challenge on 5 different days. |
 | `ACH_DUEL` | Лучший сотрудник месяца | Выиграть дуэль у коллеги Лёши. | Employee of the Month | Win a duel against your colleague Lyosha. |
+| `ACH_FASHION` | Модник | Собрать все 6 нарядов Геннадия. | Fashionista | Collect all 6 of Gennady's outfits. |
 | `ACH_DISH_ALL_PYSHKI` | Всё меню тёти Вали | Открыть все 9 рецептов Пышечной. | Auntie Valya's Whole Menu | Discover all 9 Donut Shop recipes. |
 | `ACH_FRIENDS` | Дружба народов | Открыть блюдо из продуктов двух ларьков. | Friendship of Nations | Discover a dish made from two stalls' ingredients. |
 | `ACH_SWEET` | Сладкий полёт | Подняться на 600 м только на еде тёти Вали. | Sweet Flight | Reach 600 m on Auntie Valya's food alone. |

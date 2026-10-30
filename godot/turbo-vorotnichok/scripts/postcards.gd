@@ -13,7 +13,7 @@ const CARDS := [
 const CARD := Vector2(200, 124)
 const PIC := Rect2(4, 4, 192, 104)
 const PAPER := Color("#f7f4ea")
-const SHEET := preload("res://art/gennady_sheet.png")
+var sheet: Texture2D = preload("res://art/gennady_sheet.png")  # Геннадий в том наряде, что надет (outfits.gd)
 const FONT := preload("res://fonts/Tiny5-Regular.ttf")
 const FONT_TITLE := preload("res://fonts/PressStart2P-Regular.ttf")
 
@@ -85,7 +85,8 @@ func _label(text: String, color: Color) -> Label:
 	return l
 
 
-func open(awards_got: Array) -> void:
+func open(awards_got: Array, outfit := "") -> void:
+	sheet = load(Outfits.sheet(outfit))
 	for c in grid.get_children():
 		c.queue_free()
 	var have := got(awards_got)
@@ -171,7 +172,7 @@ func _tex(pic: Control, path: String, src, at: Vector2) -> void:
 
 ## Геннадий из листа анимаций: row 0 стоит, 4 летит.
 func _hero(pic: Control, row: int, at: Vector2) -> void:
-	pic.draw_texture_rect_region(SHEET, Rect2(at, Vector2(64, 64)), Rect2(64, row * 64, 64, 64))
+	pic.draw_texture_rect_region(sheet, Rect2(at, Vector2(64, 64)), Rect2(64, row * 64, 64, 64))
 
 
 ## Зелёные облачка газа под летящим Геннадием.
